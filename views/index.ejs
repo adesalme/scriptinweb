@@ -17,6 +17,22 @@
       </div>
     </div>
 
+    <% if (!isWindows) { %>
+    <div class="row">
+      <div class="col-12">
+        <% if (isPwshAvailable) { %>
+          <div class="alert alert-info" role="alert">
+            <strong>Information :</strong> Cette application s'exécute sur un système Linux avec PowerShell Core. Certains scripts PowerShell conçus pour Windows peuvent nécessiter des modules spécifiques. L'exécution de scripts Exchange Online peut nécessiter une configuration supplémentaire.
+          </div>
+        <% } else { %>
+          <div class="alert alert-danger" role="alert">
+            <strong>Attention :</strong> PowerShell Core (pwsh) n'est pas installé ou n'est pas accessible sur ce système Linux. L'exécution de scripts PowerShell ne sera pas possible. Veuillez installer PowerShell Core pour utiliser cette application.
+          </div>
+        <% } %>
+      </div>
+    </div>
+    <% } %>
+
     <div class="row">
       <!-- Éditeur de scripts (partie supérieure gauche) -->
       <div class="col-md-8 mb-3">
