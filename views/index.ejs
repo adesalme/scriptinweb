@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PowerShell Web Editor</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/monokai.min.css">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="container-fluid">
+    <div class="row mt-3 mb-2">
+      <div class="col">
+        <h1 class="text-center">PowerShell Web Editor</h1>
+      </div>
+    </div>
+
+    <div class="row">
+      <!-- Éditeur de scripts (partie supérieure gauche) -->
+      <div class="col-md-8 mb-3">
+        <div class="card">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Éditeur de Script</h5>
+            <div>
+              <input type="text" id="scriptName" class="form-control form-control-sm d-inline-block" style="width: 200px;" placeholder="Nom du script">
+              <button id="saveScript" class="btn btn-primary btn-sm">Enregistrer</button>
+            </div>
+          </div>
+          <div class="card-body">
+            <textarea id="editor"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- Liste des scripts (partie supérieure droite) -->
+      <div class="col-md-4 mb-3">
+        <div class="card">
+          <div class="card-header">
+            <h5 class="mb-0">Scripts disponibles</h5>
+          </div>
+          <div class="card-body">
+            <ul id="scriptsList" class="list-group">
+              <% if (scripts && scripts.length > 0) { %>
+                <% scripts.forEach(function(script) { %>
+                  <li class="list-group-item d-flex justify-content-between align-items-center script-item" data-name="<%= script %>">
+                    <%= script %>
+                    <div>
+                      <button class="btn btn-sm btn-success execute-script">Exécuter</button>
+                      <button class="btn btn-sm btn-warning edit-script">Modifier</button>
+                      <button class="btn btn-sm btn-danger delete-script">Supprimer</button>
+                    </div>
+                  </li>
+                <% }); %>
+              <% } else { %>
+                <li class="list-group-item text-center text-muted">Aucun script disponible</li>
+              <% } %>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Console PowerShell (partie inférieure) -->
+    <div class="row">
+      <div class="col-12">
+        <div class="card">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Console PowerShell</h5>
+            <button id="clearConsole" class="btn btn-secondary btn-sm">Effacer</button>
+          </div>
+          <div class="card-body">
+            <div id="console" class="ps-console"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal pour les identifiants -->
+  <div class="modal fade" id="credentialsModal" tabindex="-1" aria-labelledby="credentialsModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="credentialsModalLabel">Authentification requise</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <p>Ce script nécessite des droits d'administrateur. Veuillez saisir vos identifiants.</p>
+          <form id="credentialsForm">
+            <div class="mb-3">
+              <label for="email" class="form-label">Email</label>
+              <input type="email" class="form-control" id="email" required>
+            </div>
+            <div class="mb-3">
+              <label for="password" class="form-label">Mot de passe</label>
+              <input type="password" class="form-control" id="password" required>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+          <button type="button" class="btn btn-primary" id="submitCredentials">Valider</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/powershell/powershell.min.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/script.js"></script>
+</body>
+</html> 
