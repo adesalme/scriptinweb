@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  ps-web-editor:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ps-web-editor
+    ports:
+      - "${PORT:-3000}:3000"
+    volumes:
+      - ./scripts:/app/scripts
+      - ./certs:/app/certs
+      - ./.env:/app/.env
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+    networks:
+      - ps-web-network
+
+networks:
+  ps-web-network:
+    driver: bridge 

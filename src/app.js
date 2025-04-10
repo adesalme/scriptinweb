@@ -1,14 +1,56 @@
 const express = require('express');
 const http = require('http');
+const https = require('https');
 const path = require('path');
 const socketIo = require('socket.io');
 const fs = require('fs');
 const { NodePowershell } = require('node-powershell');
+const os = require('os');
+const { exec } = require('child_process');
+require('dotenv').config();
 
 // Création de l'application Express
 const app = express();
-const server = http.createServer(app);
+
+// Configurer le serveur HTTP ou HTTPS selon la disponibilité des certificats
+let server;
+const certPath = path.join(__dirname, '../certs/cert.pem');
+const keyPath = path.join(__dirname, '../certs/key.pem');
+const sslEnabled = fs.existsSync(certPath) && fs.existsSync(keyPath);
+
+if (sslEnabled) {
+  const httpsOptions = {
+    cert: fs.readFileSync(certPath),
+    key: fs.readFileSync(keyPath)
+  };
+  server = https.createServer(httpsOptions, app);
+  console.log('Mode HTTPS activé avec certificats SSL');
+} else {
+  server = http.createServer(app);
+  console.log('Mode HTTP (sans SSL)');
+}
+
 const io = socketIo(server);
+
+// Détection du système d'exploitation
+const isWindows = os.platform() === 'win32';
+let isPwshAvailable = false;
+
+// Vérifier la disponibilité de PowerShell Core (pwsh)
+function checkPwshAvailability() {
+  return new Promise((resolve) => {
+    const command = isWindows ? 'where pwsh' : 'which pwsh';
+    exec(command, (error) => {
+      if (error) {
+        console.warn('PowerShell Core (pwsh) n\'est pas installé ou n\'est pas disponible dans le PATH');
+        resolve(false);
+      } else {
+        console.log('PowerShell Core (pwsh) est disponible');
+        resolve(true);
+      }
+    });
+  });
+}
 
 // Configuration de l'application
 app.set('view engine', 'ejs');
@@ -26,7 +68,7 @@ if (!fs.existsSync(scriptsDir)) {
 // Route principale
 app.get('/', (req, res) => {
   const scripts = getScriptsList();
-  res.render('index', { scripts });
+  res.render('index', { scripts, isWindows, isPwshAvailable, sslEnabled });
 });
 
 // API pour gérer les scripts
@@ -99,9 +141,19 @@ io.on('connection', (socket) => {
   console.log('Client connected');
   
   socket.on('execute-script', async (scriptName, credentials) => {
+    // Vérifier si PowerShell est disponible
+    if (!isWindows && !isPwshAvailable) {
+      socket.emit('execution-error', { 
+        message: 'PowerShell Core (pwsh) n\'est pas installé ou n\'est pas disponible dans le PATH. Veuillez l\'installer pour exécuter des scripts PowerShell sur Linux.' 
+      });
+      return;
+    }
+    
     const ps = new NodePowershell({
       executionPolicy: 'Bypass',
-      noProfile: true
+      noProfile: true,
+      // Utiliser pwsh sur Linux/Mac et powershell.exe sur Windows
+      pwsh: !isWindows
     });
     
     try {
@@ -109,6 +161,12 @@ io.on('connection', (socket) => {
       
       if (!fs.existsSync(scriptPath)) {
         socket.emit('execution-error', { message: 'Script not found' });
+        return;
+      }
+      
+      // Notifier l'utilisateur si le script peut nécessiter des modules Windows
+      if (!isWindows && scriptName === 'co') {
+        socket.emit('execution-error', { message: 'Ce script utilise Connect-ExchangeOnline qui nécessite Windows ou des modules PowerShell spécifiques pour Linux' });
         return;
       }
       
@@ -154,7 +212,16 @@ io.on('connection', (socket) => {
 });
 
 // Démarrage du serveur
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-}); 
+async function startServer() {
+  // Vérifier la disponibilité de PowerShell Core au démarrage
+  isPwshAvailable = await checkPwshAvailability();
+  
+  const PORT = process.env.PORT || 3000;
+  server.listen(PORT, () => {
+    console.log(`Server running on port ${PORT} (${sslEnabled ? 'HTTPS' : 'HTTP'})`);
+    console.log(`OS: ${isWindows ? 'Windows' : 'Non-Windows'}`);
+    console.log(`PowerShell Core disponible: ${isPwshAvailable}`);
+  });
+}
+
+startServer(); 
