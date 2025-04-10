@@ -105,12 +105,18 @@
             <ul id="scriptsList" class="list-group">
               <% if (scripts && scripts.length > 0) { %>
                 <% scripts.forEach(function(script) { %>
-                  <li class="list-group-item d-flex justify-content-between align-items-center script-item" data-name="<%= script %>">
-                    <%= script %>
+                  <li class="list-group-item d-flex justify-content-between align-items-center script-item" data-name="<%= script.name %>">
+                    <%= script.name.replace('.ps1', '') %>
                     <div>
-                      <button class="btn btn-sm btn-success execute-script">Exécuter</button>
-                      <button class="btn btn-sm btn-warning edit-script">Modifier</button>
-                      <button class="btn btn-sm btn-danger delete-script">Supprimer</button>
+                      <button class="btn btn-sm btn-success execute-script" title="Exécuter">
+                        <i class="bi bi-play-fill"></i>
+                      </button>
+                      <button class="btn btn-sm btn-primary edit-script" title="Modifier">
+                        <i class="bi bi-pencil-fill"></i>
+                      </button>
+                      <button class="btn btn-sm btn-danger delete-script" title="Supprimer">
+                        <i class="bi bi-trash-fill"></i>
+                      </button>
                     </div>
                   </li>
                 <% }); %>

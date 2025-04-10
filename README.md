@@ -1,174 +1,173 @@
-# PowerShell Web Editor
+# ScriptInWeb
 
-Une application web pour éditer et exécuter des scripts PowerShell en temps réel, compatible avec Windows et Linux (via PowerShell Core).
+Une application web pour éditer et exécuter des scripts PowerShell en temps réel, avec authentification Azure AD et support pour Windows et Linux (via PowerShell Core).
 
 ## Fonctionnalités
 
 - Interface utilisateur web pour créer, éditer, et gérer des scripts PowerShell
 - Exécution en temps réel avec affichage des résultats dans une console intégrée
+- Shell PowerShell interactif intégré à l'interface web
+- Authentification via Azure AD (Microsoft Entra ID)
+- Mode démonstration pour tester sans configuration Azure
 - Support de Windows et Linux (avec PowerShell Core)
-- Possibilité d'utiliser des identifiants pour les scripts nécessitant des privilèges administratifs
 - Support SSL pour sécuriser les connexions
+- Stockage des sessions dans des fichiers pour une meilleure persistance
 
 ## Prérequis
 
-- Docker et Docker Compose
-- Certificats SSL (optionnel)
+- Node.js v14+
+- PowerShell Core (pwsh) pour Linux/macOS ou PowerShell pour Windows
+- Certificats SSL (optionnel, mais recommandé pour la production)
 
-## Déploiement avec Docker
+## Installation
 
-### 1. Configurer les certificats SSL (optionnel)
+### Option 1 : Installation automatique (Linux)
 
-Pour activer HTTPS, placez vos certificats SSL dans le dossier `certs/` :
-
-```bash
-mkdir -p certs
-# Copiez vos certificats SSL dans le dossier certs/
-# - Certificat : certs/cert.pem
-# - Clé privée : certs/key.pem
-```
-
-Alternativement, vous pouvez spécifier les chemins vers vos certificats dans le fichier `.env` :
+Un script d'installation est fourni pour configurer automatiquement tous les prérequis sur Linux :
 
 ```bash
-cp .env.example .env
-# Modifiez les variables SSL_CERT_PATH et SSL_KEY_PATH dans le fichier .env
+# Rendre le script exécutable
+chmod +x install-prerequisites.sh
+
+# Exécuter le script en tant que root
+sudo ./install-prerequisites.sh
 ```
 
-### 2. Construire et démarrer le conteneur
+Ce script installe :
+- PowerShell Core
+- Modules PowerShell nécessaires (ExchangeOnlineManagement, Az)
+- Node.js et npm
+- Dépendances du projet
 
-```bash
-docker-compose up -d
-```
-
-L'application sera accessible sur le port 3000 par défaut : http://localhost:3000 ou https://localhost:3000 si SSL est configuré.
-
-### 3. Arrêter le conteneur
-
-```bash
-docker-compose down
-```
-
-## Configuration
-
-Toutes les configurations peuvent être effectuées via le fichier `.env` :
-
-```
-# Configuration du serveur
-PORT=3000
-
-# Chemins des certificats SSL
-SSL_CERT_PATH=/path/to/your/certificate.pem
-SSL_KEY_PATH=/path/to/your/private-key.pem
-
-# Autres configurations
-NODE_ENV=production
-```
-
-## Développement sans Docker
-
-### Installation
+### Option 2 : Installation manuelle
 
 ```bash
 # Cloner le dépôt
 git clone <repo-url>
-cd ps-web-editor
+cd scriptinweb
 
 # Installer les dépendances
 npm install
 
-# Démarrer l'application en mode développement
-npm run dev
+# Créer les dossiers nécessaires
+mkdir -p scripts
+mkdir -p certs
 ```
 
-### Prérequis pour le développement local
+## Configuration
 
-- Node.js v14+
-- PowerShell Core (pwsh) pour Linux/macOS ou PowerShell pour Windows
-
-## Utilisation de PowerShell Core sur Linux
-
-L'application utilise PowerShell Core (pwsh) sur les systèmes Linux. Pour des fonctionnalités Exchange Online, vous devrez installer le module approprié :
+Toutes les configurations sont centralisées dans le fichier `.env` :
 
 ```bash
-# Dans PowerShell Core (pwsh)
-Install-Module -Name ExchangeOnlineManagement -Force
+# Copier le fichier d'exemple
+cp .env.example .env
+
+# Modifier les variables selon votre environnement
 ```
 
-## Structure des dossiers
+### Variables de configuration principales
 
-- `src/` - Code source JavaScript de l'application
-- `scripts/` - Scripts PowerShell stockés
-- `views/` - Templates EJS pour les pages web
-- `public/` - Fichiers statiques (CSS, JavaScript client)
-- `certs/` - Certificats SSL pour HTTPS
+```
+# Configuration du serveur
+PORT=3000
+HTTPS_PORT=8443
+HOST=localhost
 
-## Utilisation
+# Configuration SSL
+SSL_ENABLED=true
+SSL_CERT_PATH=/ssl/cert.pem
+SSL_KEY_PATH=/ssl/key.pem
 
-### Démarrer l'application
+# Configuration Azure AD
+AZURE_CLIENT_ID=your_client_id
+AZURE_CLIENT_SECRET=your_client_secret
+AZURE_TENANT_ID=your_tenant_id
+AZURE_REDIRECT_URI=https://adresse.domaine.com/auth/callback
+
+# Configuration de l'application
+APP_NAME=ScriptInWeb
+APP_URL=https://adresse.domaine.com 
+APP_DESCRIPTION=Éditeur de scripts PowerShell avec authentification Azure AD
+
+# Configuration des dossiers
+SCRIPTS_DIR=scripts
+CERTIFICATES_DIR=certs
+
+# Configuration de la session
+SESSION_SECRET=your_session_secret
+SESSION_STORE_PATH=./sessions
+
+# Configuration du mode démonstration
+DEMO_MODE=false
+```
+
+## Démarrage de l'application
+
+### Mode production
 
 ```bash
 npm start
 ```
 
-ou pour le développement avec redémarrage automatique :
+### Mode développement
 
 ```bash
 npm run dev
 ```
 
-L'application sera accessible à l'adresse [http://localhost:3000](http://localhost:3000)
+## Mode démonstration
 
-### Utilisation de l'interface
-
-1. **Créer un script** : 
-   - Saisissez le code PowerShell dans l'éditeur
-   - Donnez un nom au script dans le champ de texte
-   - Cliquez sur "Enregistrer"
-
-2. **Exécuter un script** :
-   - Cliquez sur le bouton "Exécuter" à côté du script dans la liste
-   - Les résultats s'afficheront dans la console PowerShell
-
-3. **Modifier un script** :
-   - Cliquez sur le bouton "Modifier" pour charger le script dans l'éditeur
-   - Apportez vos modifications
-   - Cliquez sur "Enregistrer"
-
-4. **Supprimer un script** :
-   - Cliquez sur le bouton "Supprimer" à côté du script dans la liste
-
-5. **Exécution avec identifiants** :
-   - Si un script nécessite des droits administratifs, une fenêtre modale apparaîtra
-   - Saisissez votre email et mot de passe
-   - Cliquez sur "Valider" pour exécuter le script avec ces identifiants
-
-## Structure du projet
+Pour tester l'application sans configuration Azure AD, activez le mode démonstration dans le fichier `.env` :
 
 ```
-ps-web-editor/
-├── public/              # Fichiers statiques
-│   ├── css/             # Feuilles de style
-│   └── js/              # Scripts côté client
-├── scripts/             # Dossier où sont stockés les scripts PowerShell
-├── src/                 # Code source du serveur
-│   └── app.js           # Fichier principal de l'application
-├── views/               # Fichiers de templates EJS
-│   └── index.ejs        # Page principale
-├── package.json         # Dépendances du projet
-└── README.md            # Ce fichier
+DEMO_MODE=true
+```
+
+En mode démonstration :
+- L'authentification Azure AD est désactivée
+- Les commandes PowerShell sont simulées
+- Aucune connexion à Azure n'est établie
+
+## Utilisation de PowerShell Core sur Linux
+
+L'application utilise PowerShell Core (pwsh) sur les systèmes Linux. Pour des fonctionnalités Exchange Online et Azure, vous devrez installer les modules appropriés :
+
+```powershell
+# Dans PowerShell Core (pwsh)
+Install-Module -Name ExchangeOnlineManagement -Force
+Install-Module -Name Az -Force -AllowClobber
+```
+
+## Structure des dossiers
+
+- `src/` - Code source JavaScript de l'application
+  - `app.js` - Point d'entrée de l'application
+  - `services/` - Services de l'application (authentification, PowerShell)
+- `views/` - Templates EJS pour l'interface utilisateur
+- `public/` - Fichiers statiques (CSS, JavaScript, images)
+- `scripts/` - Dossier pour stocker les scripts PowerShell
+- `certs/` - Dossier pour les certificats SSL
+- `sessions/` - Dossier pour le stockage des sessions
+
+## Déploiement avec Docker
+
+Un fichier `docker-compose.yml` est fourni pour faciliter le déploiement avec Docker :
+
+```bash
+docker-compose up -d
 ```
 
 ## Sécurité
 
-⚠️ **Attention** : Cette application est conçue à des fins de démonstration. Pour une utilisation en production, considérez les points suivants :
+- Les sessions sont stockées dans des fichiers pour une meilleure persistance
+- Les certificats SSL sont utilisés pour sécuriser les connexions
+- L'authentification Azure AD protège l'accès à l'application
+- Les secrets sont stockés dans le fichier `.env` (non versionné)
 
-- Ajoutez une authentification utilisateur
-- Utilisez HTTPS pour sécuriser les communications
-- Limitez les commandes PowerShell autorisées
-- Implémentez des mécanismes de protection contre les injections de code malveillant
-- Chiffrez les identifiants lorsqu'ils sont transmis au serveur
+## Contribution
+
+Les contributions sont les bienvenues ! N'hésitez pas à ouvrir une issue ou à soumettre une pull request.
 
 ## Licence
 
-ISC # scriptinweb
+ISC

@@ -19,7 +19,7 @@ class AuthService {
                     clientId: process.env.AZURE_CLIENT_ID,
                     clientSecret: process.env.AZURE_CLIENT_SECRET,
                     authority: `https://login.microsoftonline.com/${process.env.AZURE_TENANT_ID}`,
-                    redirectUri: process.env.REDIRECT_URI || 'https://scriptinweb.chateauform.com:8443/auth/callback'
+                    redirectUri: process.env.AZURE_REDIRECT_URI || 'https://scriptinweb.chateauform.com:8443/auth/callback'
                 }
             };
             
@@ -40,6 +40,11 @@ class AuthService {
     // Générer l'URL de connexion
     async getAuthUrl() {
         try {
+            if (this.demoMode) {
+                console.log('Mode démonstration: URL d\'authentification simulée');
+                return `${process.env.APP_URL || 'http://localhost:3000'}/auth/demo-login`;
+            }
+            
             const state = this.generateState();
             const authCodeUrlParameters = {
                 scopes: authScopes.userScopes,
@@ -59,6 +64,18 @@ class AuthService {
     // Gérer le callback de l'authentification
     async handleCallback(code) {
         try {
+            if (this.demoMode) {
+                console.log('Mode démonstration: Callback simulé');
+                return {
+                    accessToken: 'demo-token',
+                    account: {
+                        username: 'demo@example.com',
+                        name: 'Demo User',
+                        id: 'demo-id'
+                    }
+                };
+            }
+            
             console.log('Traitement du callback avec le code reçu');
             const tokenRequest = {
                 code: code,
@@ -83,6 +100,15 @@ class AuthService {
     // Obtenir les informations de l'utilisateur
     async getUserInfo(accessToken) {
         try {
+            if (this.demoMode) {
+                console.log('Mode démonstration: Informations utilisateur simulées');
+                return {
+                    displayName: 'Demo User',
+                    userPrincipalName: 'demo@example.com',
+                    id: 'demo-id'
+                };
+            }
+            
             console.log('Récupération des informations utilisateur avec le token');
             const client = Client.init({
                 authProvider: (done) => {
@@ -101,6 +127,11 @@ class AuthService {
 
     // Exécuter un script PowerShell
     async executePowerShellWithToken(scriptContent, service) {
+        if (this.demoMode) {
+            console.log('Mode démonstration: Exécution PowerShell simulée');
+            return `Demo mode: ${scriptContent}`;
+        }
+        
         let ps = null;
         try {
             console.log('Démarrage de l\'exécution PowerShell...');
@@ -163,75 +194,6 @@ class AuthService {
     }
 }
 
-// Fonction pour vérifier si nous sommes en mode démonstration
-const isDemoMode = () => process.env.DEMO_MODE === 'true';
-
-// Fonction pour obtenir l'URL de redirection
-const getRedirectUri = () => process.env.AZURE_REDIRECT_URI;
-
-// Fonction pour obtenir l'URL de l'application
-const getAppUrl = () => process.env.APP_URL;
-
-// Fonction pour obtenir le nom de l'application
-const getAppName = () => process.env.APP_NAME;
-
-// Fonction pour obtenir la description de l'application
-const getAppDescription = () => process.env.APP_DESCRIPTION;
-
-// Fonction pour obtenir l'URL de connexion
-const getLoginUrl = () => {
-    if (isDemoMode()) {
-        return `${getAppUrl()}/auth/demo-login`;
-    }
-    return msalConfig.auth.authority;
-};
-
-// Fonction pour obtenir le token
-const getToken = async (code) => {
-    if (isDemoMode()) {
-        return {
-            accessToken: 'demo-token',
-            account: {
-                username: 'demo@example.com',
-                name: 'Demo User',
-                id: 'demo-id'
-            }
-        };
-    }
-    const response = await msalClient.acquireTokenByCode({
-        code,
-        scopes: tokenRequest.scopes,
-        redirectUri: getRedirectUri()
-    });
-    return response;
-};
-
-// Fonction pour exécuter une commande PowerShell
-const executePowerShellCommand = async (command) => {
-    if (isDemoMode()) {
-        return {
-            stdout: `Demo mode: ${command}`,
-            stderr: ''
-        };
-    }
-    try {
-        const { stdout, stderr } = await execAsync(`pwsh -Command "${command}"`);
-        return { stdout, stderr };
-    } catch (error) {
-        return {
-            stdout: '',
-            stderr: error.message
-        };
-    }
-};
-
-module.exports = {
-    isDemoMode,
-    getRedirectUri,
-    getAppUrl,
-    getAppName,
-    getAppDescription,
-    getLoginUrl,
-    getToken,
-    executePowerShellCommand
-}; 
+// Créer et exporter une instance unique du service d'authentification
+const authService = new AuthService();
+module.exports = authService; 

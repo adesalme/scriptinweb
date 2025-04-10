@@ -51,12 +51,18 @@ document.addEventListener('DOMContentLoaded', function() {
       const scriptsList = document.getElementById('scriptsList');
       scriptsList.innerHTML = '';
       
+      if (scripts.length === 0) {
+        scriptsList.innerHTML = '<li class="list-group-item text-center text-muted">Aucun script disponible</li>';
+        return;
+      }
+      
       scripts.forEach(script => {
-        const item = document.createElement('div');
-        item.className = 'script-item d-flex justify-content-between align-items-center p-2 border-bottom';
+        const item = document.createElement('li');
+        item.className = 'list-group-item d-flex justify-content-between align-items-center script-item';
+        item.setAttribute('data-name', script.name);
         
         const nameSpan = document.createElement('span');
-        nameSpan.textContent = script;
+        nameSpan.textContent = script.name.replace('.ps1', '');
         
         const buttonsDiv = document.createElement('div');
         
@@ -65,21 +71,21 @@ document.addEventListener('DOMContentLoaded', function() {
         executeBtn.className = 'btn btn-sm btn-success me-1';
         executeBtn.innerHTML = '<i class="bi bi-play-fill"></i>';
         executeBtn.title = 'Exécuter';
-        executeBtn.onclick = () => executeScript(script);
+        executeBtn.onclick = () => executeScript(script.name);
         
         // Bouton Modifier
         const editBtn = document.createElement('button');
         editBtn.className = 'btn btn-sm btn-primary me-1';
-        editBtn.innerHTML = '<i class="bi bi-pencil"></i>';
+        editBtn.innerHTML = '<i class="bi bi-pencil-fill"></i>';
         editBtn.title = 'Modifier';
-        editBtn.onclick = () => loadScript(script);
+        editBtn.onclick = () => loadScript(script.name);
         
         // Bouton Supprimer
         const deleteBtn = document.createElement('button');
         deleteBtn.className = 'btn btn-sm btn-danger';
-        deleteBtn.innerHTML = '<i class="bi bi-trash"></i>';
+        deleteBtn.innerHTML = '<i class="bi bi-trash-fill"></i>';
         deleteBtn.title = 'Supprimer';
-        deleteBtn.onclick = () => deleteScript(script);
+        deleteBtn.onclick = () => deleteScript(script.name);
         
         buttonsDiv.appendChild(executeBtn);
         buttonsDiv.appendChild(editBtn);
@@ -98,12 +104,12 @@ document.addEventListener('DOMContentLoaded', function() {
   // Fonction pour charger un script
   async function loadScript(name) {
     try {
-      const response = await fetch(`/api/scripts/${name}`);
+      const response = await fetch(`/api/scripts/${encodeURIComponent(name)}`);
       const data = await response.json();
       
-      document.getElementById('scriptName').value = data.name;
+      document.getElementById('scriptName').value = name.replace('.ps1', '');
       editor.setValue(data.content);
-      currentScript = data.name;
+      currentScript = name;
     } catch (error) {
       console.error('Erreur lors du chargement du script:', error);
       appendToConsole('Erreur lors du chargement du script', 'error');
@@ -112,7 +118,7 @@ document.addEventListener('DOMContentLoaded', function() {
   
   // Fonction pour sauvegarder un script
   async function saveScript() {
-    const name = document.getElementById('scriptName').value;
+    const name = document.getElementById('scriptName').value.trim();
     const content = editor.getValue();
     
     if (!name) {
@@ -120,17 +126,28 @@ document.addEventListener('DOMContentLoaded', function() {
       return;
     }
     
+    // Nettoyer le nom du script : enlever .ps1 s'il existe et le rajouter proprement
+    const cleanName = name.replace(/\.ps1$/, '');
+    const fullName = `${cleanName}.ps1`;
+    
     try {
-      const response = await fetch('/api/scripts', {
-        method: 'POST',
+      // Utiliser PUT si le script existe déjà, sinon POST pour un nouveau script
+      const method = currentScript ? 'PUT' : 'POST';
+      const url = currentScript 
+        ? `/api/scripts/${encodeURIComponent(currentScript)}`
+        : '/api/scripts';
+      
+      const response = await fetch(url, {
+        method: method,
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ name, content })
+        body: JSON.stringify({ name: fullName, content })
       });
       
       if (response.ok) {
-        appendToConsole(`Script "${name}" sauvegardé avec succès`, 'success');
+        appendToConsole(`Script "${fullName}" ${currentScript ? 'modifié' : 'créé'} avec succès`, 'success');
+        currentScript = fullName; // Mettre à jour le script courant
         loadScriptsList();
       } else {
         const error = await response.json();
@@ -149,13 +166,20 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     try {
-      const response = await fetch(`/api/scripts/${name}`, {
+      const response = await fetch(`/api/scripts/${encodeURIComponent(name)}`, {
         method: 'DELETE'
       });
       
       if (response.ok) {
         appendToConsole(`Script "${name}" supprimé avec succès`, 'success');
         loadScriptsList();
+        
+        // Si le script supprimé était en cours d'édition, effacer l'éditeur
+        if (currentScript === name) {
+          editor.setValue('');
+          document.getElementById('scriptName').value = '';
+          currentScript = '';
+        }
       } else {
         const error = await response.json();
         throw new Error(error.error);
@@ -173,11 +197,15 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Déterminer le service en fonction du nom du script
     let service = 'exchange';
-    if (name.includes('azure')) {
+    if (name.toLowerCase().includes('azure')) {
       service = 'azure';
     }
     
-    socket.emit('execute-script', { scriptName: name, service });
+    // Nettoyer le nom du script et s'assurer qu'il a l'extension .ps1
+    const cleanName = name.replace(/\.ps1$/, '');
+    const scriptName = `${cleanName}.ps1`;
+    
+    socket.emit('execute-script', { scriptName, service });
   }
   
   // Gestionnaires d'événements
@@ -201,7 +229,7 @@ document.addEventListener('DOMContentLoaded', function() {
   });
   
   socket.on('execution-completed', function(data) {
-    appendToConsole('Exécution terminée avec succès.', 'success');
+    appendToConsole('Exécution terminée', 'success');
   });
   
   // Charger la liste des scripts au démarrage

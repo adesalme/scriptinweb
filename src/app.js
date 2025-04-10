@@ -118,16 +118,24 @@ if (!fs.existsSync(scriptsDir)) {
 // Fonction pour obtenir la liste des scripts
 function getScriptsList() {
     const scriptsDir = path.join(__dirname, '..', process.env.SCRIPTS_DIR || 'scripts');
+    console.log('Recherche des scripts dans le dossier:', scriptsDir);
+    
     if (!fs.existsSync(scriptsDir)) {
+        console.warn('Le dossier des scripts n\'existe pas, création:', scriptsDir);
         fs.mkdirSync(scriptsDir, { recursive: true });
         return [];
     }
-    return fs.readdirSync(scriptsDir)
-        .filter(file => file.endsWith('.ps1'))
-        .map(file => ({
-            name: file,
-            path: path.join(scriptsDir, file)
-        }));
+    
+    const files = fs.readdirSync(scriptsDir);
+    console.log('Fichiers trouvés dans le dossier:', files);
+    
+    const scriptFiles = files.filter(file => file.endsWith('.ps1'));
+    console.log('Scripts PowerShell trouvés:', scriptFiles);
+    
+    return scriptFiles.map(file => ({
+        name: file,
+        path: path.join(scriptsDir, file)
+    }));
 }
 
 // Middleware d'authentification
@@ -158,6 +166,17 @@ app.get('/auth/login', async (req, res) => {
             error: error
         });
     }
+});
+
+// Route pour le mode démonstration
+app.get('/auth/demo-login', (req, res) => {
+    console.log('Mode démonstration: Connexion simulée');
+    req.session.user = {
+        displayName: 'Demo User',
+        userPrincipalName: 'demo@example.com',
+        id: 'demo-id'
+    };
+    res.redirect('/');
 });
 
 app.get('/auth/callback', async (req, res) => {
@@ -233,7 +252,8 @@ app.post('/api/scripts', (req, res) => {
 
 app.get('/api/scripts/:name', (req, res) => {
     const { name } = req.params;
-    const filename = path.join(scriptsDir, `${name}.ps1`);
+    // Ne pas ajouter .ps1 si le nom contient déjà l'extension
+    const filename = path.join(scriptsDir, name.endsWith('.ps1') ? name : `${name}.ps1`);
     
     if (!fs.existsSync(filename)) {
         return res.status(404).json({ error: 'Script not found' });
@@ -270,127 +290,139 @@ app.delete('/api/scripts/:name', (req, res) => {
 
 // Route pour la page shell
 app.get('/shell', ensureAuthenticated, (req, res) => {
-    res.render('shell', { 
+    res.render('shell', {
         user: req.session.user,
-        sslEnabled: sslEnabled
+        isHttps: req.secure
     });
 });
 
 // Modification de la gestion Socket.IO pour utiliser l'identité de l'utilisateur
 io.on('connection', (socket) => {
-    console.log('Client connected');
+    console.log('Nouvelle connexion Socket.IO');
     
     socket.on('execute-script', async (data) => {
-        const { scriptName, service } = data;
-        const session = socket.request.session;
-        
-        if (!session || !session.user) {
-            socket.emit('execution-error', { message: 'Non authentifié' });
-            return;
-        }
-        
-        // Vérifier si PowerShell est disponible
-        if (!isWindows && !isPwshAvailable) {
-            socket.emit('execution-error', { 
-                message: 'PowerShell Core (pwsh) n\'est pas installé ou n\'est pas disponible dans le PATH. Veuillez l\'installer pour exécuter des scripts PowerShell sur Linux.' 
-            });
-            return;
-        }
+        console.log('Demande d\'exécution du script:', data);
         
         try {
-            const scriptPath = path.join(scriptsDir, `${scriptName}.ps1`);
+            if (!data || typeof data !== 'object' || !data.scriptName) {
+                throw new Error('Format de données invalide');
+            }
+
+            const scripts = getScriptsList();
+            console.log('Liste des scripts disponibles:', scripts.map(s => s.name));
             
-            if (!fs.existsSync(scriptPath)) {
-                socket.emit('execution-error', { message: 'Script not found' });
+            const script = scripts.find(s => s.name === data.scriptName);
+            if (!script) {
+                console.error('Script non trouvé:', data.scriptName);
+                socket.emit('script-error', 'Script not found');
                 return;
             }
             
-            const scriptContent = fs.readFileSync(scriptPath, 'utf8');
+            console.log('Exécution du script:', script.path);
             
-            // Ajouter les commandes d'installation des modules si nécessaires
-            const setupScript = `
-                # Configuration du repository PSGallery
-                if ((Get-PSRepository -Name "PSGallery").InstallationPolicy -ne "Trusted") {
-                    Write-Output "Configuration du repository PSGallery..."
-                    Set-PSRepository -Name "PSGallery" -InstallationPolicy Trusted
-                }
-
-                # Installation du module Az.Accounts si nécessaire
-                if (-not (Get-Module -ListAvailable -Name Az.Accounts)) {
-                    Write-Output "Installation du module Az.Accounts..."
-                    Install-Module -Name Az.Accounts -Repository PSGallery -Force -AllowClobber -Scope CurrentUser
-                }
-
-                # Installation du module Microsoft.Graph si nécessaire
-                if (-not (Get-Module -ListAvailable -Name Microsoft.Graph)) {
-                    Write-Output "Installation du module Microsoft.Graph..."
-                    Install-Module -Name Microsoft.Graph -Repository PSGallery -Force -AllowClobber -Scope CurrentUser
-                }
-
-                # Installation du module AzureAD si nécessaire
-                if (-not (Get-Module -ListAvailable -Name AzureAD)) {
-                    Write-Output "Installation du module AzureAD..."
-                    Install-Module -Name AzureAD -Repository PSGallery -Force -AllowClobber -Scope CurrentUser
-                }
-
-                # Installation du module ExchangeOnlineManagement si nécessaire
-                if (-not (Get-Module -ListAvailable -Name ExchangeOnlineManagement)) {
-                    Write-Output "Installation du module ExchangeOnlineManagement..."
-                    Install-Module -Name ExchangeOnlineManagement -Repository PSGallery -Force -AllowClobber -Scope CurrentUser
-                }
-
-                # Import des modules nécessaires
-                Write-Output "Import des modules..."
-                Import-Module AzureAD
-                Import-Module Microsoft.Graph
-                Import-Module ExchangeOnlineManagement
-            `;
+            // Déterminer PowerShell executable basé sur la plateforme
+            const pwshPath = process.platform === 'win32' ? 'powershell.exe' : 'pwsh';
             
-            // Utiliser le token de l'utilisateur pour l'exécution
-            const result = await authService.executePowerShellWithToken(
-                setupScript + "\n" + scriptContent,
-                service,
-                session.accessToken
-            );
+            // Créer le processus PowerShell avec l'option pour désactiver la colorisation
+            const ps = spawn(pwshPath, [
+                '-NoProfile',
+                '-NonInteractive',
+                '-Command',
+                `& {
+                    $Host.UI.RawUI.ForegroundColor = 'White';
+                    $Host.UI.RawUI.BackgroundColor = 'Black';
+                    $PSStyle.OutputRendering = 'PlainText';
+                    . "${script.path}"
+                }`
+            ]);
             
-            // Émettre les résultats progressivement
-            socket.emit('script-output', { output: result });
-            socket.emit('execution-completed', { result: 'Script executed successfully' });
+            // Fonction pour nettoyer les codes ANSI
+            function cleanAnsiCodes(text) {
+                // Supprime les codes de couleur ANSI
+                return text.replace(/\x1B\[[0-9;]*[mGK]/g, '');
+            }
+            
+            // Gérer la sortie standard
+            ps.stdout.on('data', (data) => {
+                const cleanOutput = cleanAnsiCodes(data.toString());
+                socket.emit('script-output', {
+                    output: cleanOutput
+                });
+            });
+            
+            // Gérer les erreurs
+            ps.stderr.on('data', (data) => {
+                const cleanOutput = cleanAnsiCodes(data.toString());
+                socket.emit('script-output', {
+                    output: cleanOutput
+                });
+            });
+            
+            // Gérer la fin du processus
+            ps.on('close', (code) => {
+                if (code !== 0) {
+                    socket.emit('script-error', `Process exited with code ${code}`);
+                }
+                socket.emit('execution-completed');
+            });
+            
         } catch (error) {
-            console.error('Execution error:', error);
-            socket.emit('execution-error', { 
-                message: error.message,
-                stack: error.stack
-            });
-            // Émettre également l'erreur comme sortie pour l'afficher dans la console
-            socket.emit('script-output', { 
-                output: `Erreur: ${error.message}\n${error.stack || ''}`
-            });
+            console.error('Erreur lors de l\'exécution du script:', error);
+            socket.emit('script-error', error.message);
         }
     });
     
     // Gestion des commandes shell
     socket.on('execute-command', async (command) => {
         try {
-            const pwsh = spawn('pwsh', ['-Command', command]);
+            // Determine PowerShell executable based on platform
+            const pwshPath = process.platform === 'win32' ? 'powershell.exe' : 'pwsh';
             
-            pwsh.stdout.on('data', (data) => {
-                socket.emit('command-output', data.toString());
+            // Create PowerShell process
+            const ps = spawn(pwshPath, ['-NoProfile', '-NonInteractive', '-Command', command]);
+            
+            // Handle standard output
+            ps.stdout.on('data', (data) => {
+                socket.emit('command-output', {
+                    type: 'output',
+                    data: data.toString()
+                });
             });
-
-            pwsh.stderr.on('data', (data) => {
-                socket.emit('command-error', data.toString());
+            
+            // Handle standard error
+            ps.stderr.on('data', (data) => {
+                socket.emit('command-output', {
+                    type: 'error',
+                    data: data.toString()
+                });
             });
-
-            pwsh.on('close', (code) => {
+            
+            // Handle process completion
+            ps.on('close', (code) => {
                 if (code !== 0) {
-                    socket.emit('command-error', `Process exited with code ${code}`);
+                    socket.emit('command-output', {
+                        type: 'error',
+                        data: `Process exited with code ${code}`
+                    });
                 }
-                socket.emit('command-end');
+                socket.emit('command-complete');
             });
+            
+            // Handle process errors
+            ps.on('error', (err) => {
+                socket.emit('command-output', {
+                    type: 'error',
+                    data: `Failed to start PowerShell: ${err.message}`
+                });
+                socket.emit('command-complete');
+            });
+            
         } catch (error) {
-            socket.emit('command-error', error.message);
-            socket.emit('command-end');
+            socket.emit('command-output', {
+                type: 'error',
+                data: `Error executing command: ${error.message}`
+            });
+            socket.emit('command-complete');
         }
     });
     
