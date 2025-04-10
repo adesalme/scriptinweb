@@ -1,29 +1,107 @@
 # PowerShell Web Editor
 
-Une application web Node.js qui permet de créer, modifier, supprimer et exécuter des scripts PowerShell via une interface web.
+Une application web pour éditer et exécuter des scripts PowerShell en temps réel, compatible avec Windows et Linux (via PowerShell Core).
 
 ## Fonctionnalités
 
-- Éditeur de scripts PowerShell avec coloration syntaxique
-- Liste des scripts disponibles avec options d'exécution, de modification et de suppression
-- Console PowerShell intégrée pour afficher les résultats d'exécution
-- Gestion des identifiants pour l'exécution de scripts nécessitant des droits administratifs
+- Interface utilisateur web pour créer, éditer, et gérer des scripts PowerShell
+- Exécution en temps réel avec affichage des résultats dans une console intégrée
+- Support de Windows et Linux (avec PowerShell Core)
+- Possibilité d'utiliser des identifiants pour les scripts nécessitant des privilèges administratifs
+- Support SSL pour sécuriser les connexions
 
 ## Prérequis
 
-- Node.js (v12 ou supérieur)
-- PowerShell (Windows PowerShell 5.1 ou PowerShell Core 6+)
+- Docker et Docker Compose
+- Certificats SSL (optionnel)
 
-## Installation
+## Déploiement avec Docker
 
-1. Clonez ce dépôt ou téléchargez les fichiers
-2. Naviguez dans le dossier du projet
-3. Installez les dépendances
+### 1. Configurer les certificats SSL (optionnel)
+
+Pour activer HTTPS, placez vos certificats SSL dans le dossier `certs/` :
 
 ```bash
-cd ps-web-editor
-npm install
+mkdir -p certs
+# Copiez vos certificats SSL dans le dossier certs/
+# - Certificat : certs/cert.pem
+# - Clé privée : certs/key.pem
 ```
+
+Alternativement, vous pouvez spécifier les chemins vers vos certificats dans le fichier `.env` :
+
+```bash
+cp .env.example .env
+# Modifiez les variables SSL_CERT_PATH et SSL_KEY_PATH dans le fichier .env
+```
+
+### 2. Construire et démarrer le conteneur
+
+```bash
+docker-compose up -d
+```
+
+L'application sera accessible sur le port 3000 par défaut : http://localhost:3000 ou https://localhost:3000 si SSL est configuré.
+
+### 3. Arrêter le conteneur
+
+```bash
+docker-compose down
+```
+
+## Configuration
+
+Toutes les configurations peuvent être effectuées via le fichier `.env` :
+
+```
+# Configuration du serveur
+PORT=3000
+
+# Chemins des certificats SSL
+SSL_CERT_PATH=/path/to/your/certificate.pem
+SSL_KEY_PATH=/path/to/your/private-key.pem
+
+# Autres configurations
+NODE_ENV=production
+```
+
+## Développement sans Docker
+
+### Installation
+
+```bash
+# Cloner le dépôt
+git clone <repo-url>
+cd ps-web-editor
+
+# Installer les dépendances
+npm install
+
+# Démarrer l'application en mode développement
+npm run dev
+```
+
+### Prérequis pour le développement local
+
+- Node.js v14+
+- PowerShell Core (pwsh) pour Linux/macOS ou PowerShell pour Windows
+
+## Utilisation de PowerShell Core sur Linux
+
+L'application utilise PowerShell Core (pwsh) sur les systèmes Linux. Pour des fonctionnalités Exchange Online, vous devrez installer le module approprié :
+
+```bash
+# Dans PowerShell Core (pwsh)
+Install-Module -Name ExchangeOnlineManagement -Force
+```
+
+## Structure des dossiers
+
+- `src/` - Code source JavaScript de l'application
+- `scripts/` - Scripts PowerShell stockés
+- `views/` - Templates EJS pour les pages web
+- `public/` - Fichiers statiques (CSS, JavaScript client)
+- `certs/` - Certificats SSL pour HTTPS
 
 ## Utilisation
 

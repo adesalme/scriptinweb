@@ -1,15 +1,35 @@
 const express = require('express');
 const http = require('http');
+const https = require('https');
 const path = require('path');
 const socketIo = require('socket.io');
 const fs = require('fs');
 const { NodePowershell } = require('node-powershell');
 const os = require('os');
 const { exec } = require('child_process');
+require('dotenv').config();
 
 // Création de l'application Express
 const app = express();
-const server = http.createServer(app);
+
+// Configurer le serveur HTTP ou HTTPS selon la disponibilité des certificats
+let server;
+const certPath = path.join(__dirname, '../certs/cert.pem');
+const keyPath = path.join(__dirname, '../certs/key.pem');
+const sslEnabled = fs.existsSync(certPath) && fs.existsSync(keyPath);
+
+if (sslEnabled) {
+  const httpsOptions = {
+    cert: fs.readFileSync(certPath),
+    key: fs.readFileSync(keyPath)
+  };
+  server = https.createServer(httpsOptions, app);
+  console.log('Mode HTTPS activé avec certificats SSL');
+} else {
+  server = http.createServer(app);
+  console.log('Mode HTTP (sans SSL)');
+}
+
 const io = socketIo(server);
 
 // Détection du système d'exploitation
@@ -48,7 +68,7 @@ if (!fs.existsSync(scriptsDir)) {
 // Route principale
 app.get('/', (req, res) => {
   const scripts = getScriptsList();
-  res.render('index', { scripts, isWindows, isPwshAvailable });
+  res.render('index', { scripts, isWindows, isPwshAvailable, sslEnabled });
 });
 
 // API pour gérer les scripts
@@ -198,7 +218,7 @@ async function startServer() {
   
   const PORT = process.env.PORT || 3000;
   server.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+    console.log(`Server running on port ${PORT} (${sslEnabled ? 'HTTPS' : 'HTTP'})`);
     console.log(`OS: ${isWindows ? 'Windows' : 'Non-Windows'}`);
     console.log(`PowerShell Core disponible: ${isPwshAvailable}`);
   });
