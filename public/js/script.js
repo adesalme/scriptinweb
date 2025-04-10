@@ -4,11 +4,10 @@ document.addEventListener('DOMContentLoaded', function() {
   
   // Variables globales
   let currentScript = '';
-  let credentialsModal = null;
-  let currentScriptToExecute = '';
+  let editor = null;
   
   // Initialisation de l'éditeur CodeMirror
-  const editor = CodeMirror.fromTextArea(document.getElementById('editor'), {
+  editor = CodeMirror.fromTextArea(document.getElementById('editor'), {
     mode: 'powershell',
     theme: 'monokai',
     lineNumbers: true,
@@ -23,9 +22,6 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     }
   });
-  
-  // Initialisation du modal Bootstrap
-  credentialsModal = new bootstrap.Modal(document.getElementById('credentialsModal'));
   
   // Référence à la console PowerShell
   const psConsole = document.getElementById('console');
@@ -46,215 +42,168 @@ document.addEventListener('DOMContentLoaded', function() {
     psConsole.innerHTML = '';
   }
   
-  // Fonction pour charger la liste des scripts depuis le serveur
-  function loadScriptsList() {
-    fetch('/api/scripts')
-      .then(response => response.json())
-      .then(scripts => {
-        const scriptsList = document.getElementById('scriptsList');
-        scriptsList.innerHTML = '';
+  // Fonction pour charger la liste des scripts
+  async function loadScriptsList() {
+    try {
+      const response = await fetch('/api/scripts');
+      const scripts = await response.json();
+      
+      const scriptsList = document.getElementById('scriptsList');
+      scriptsList.innerHTML = '';
+      
+      scripts.forEach(script => {
+        const item = document.createElement('div');
+        item.className = 'script-item d-flex justify-content-between align-items-center p-2 border-bottom';
         
-        if (scripts.length === 0) {
-          scriptsList.innerHTML = '<li class="list-group-item text-center text-muted">Aucun script disponible</li>';
-          return;
-        }
+        const nameSpan = document.createElement('span');
+        nameSpan.textContent = script;
         
-        scripts.forEach(script => {
-          const li = document.createElement('li');
-          li.className = 'list-group-item d-flex justify-content-between align-items-center script-item';
-          li.setAttribute('data-name', script);
-          
-          const scriptName = document.createTextNode(script);
-          li.appendChild(scriptName);
-          
-          const buttonsDiv = document.createElement('div');
-          
-          const executeBtn = document.createElement('button');
-          executeBtn.className = 'btn btn-sm btn-success execute-script';
-          executeBtn.textContent = 'Exécuter';
-          executeBtn.addEventListener('click', function() {
-            executeScript(script);
-          });
-          
-          const editBtn = document.createElement('button');
-          editBtn.className = 'btn btn-sm btn-warning edit-script';
-          editBtn.textContent = 'Modifier';
-          editBtn.addEventListener('click', function() {
-            loadScript(script);
-          });
-          
-          const deleteBtn = document.createElement('button');
-          deleteBtn.className = 'btn btn-sm btn-danger delete-script';
-          deleteBtn.textContent = 'Supprimer';
-          deleteBtn.addEventListener('click', function() {
-            deleteScript(script);
-          });
-          
-          buttonsDiv.appendChild(executeBtn);
-          buttonsDiv.appendChild(editBtn);
-          buttonsDiv.appendChild(deleteBtn);
-          
-          li.appendChild(buttonsDiv);
-          scriptsList.appendChild(li);
-        });
-      })
-      .catch(error => {
-        console.error('Erreur lors du chargement des scripts:', error);
-        appendToConsole('Erreur lors du chargement des scripts: ' + error.message, 'error');
+        const buttonsDiv = document.createElement('div');
+        
+        // Bouton Exécuter
+        const executeBtn = document.createElement('button');
+        executeBtn.className = 'btn btn-sm btn-success me-1';
+        executeBtn.innerHTML = '<i class="bi bi-play-fill"></i>';
+        executeBtn.title = 'Exécuter';
+        executeBtn.onclick = () => executeScript(script);
+        
+        // Bouton Modifier
+        const editBtn = document.createElement('button');
+        editBtn.className = 'btn btn-sm btn-primary me-1';
+        editBtn.innerHTML = '<i class="bi bi-pencil"></i>';
+        editBtn.title = 'Modifier';
+        editBtn.onclick = () => loadScript(script);
+        
+        // Bouton Supprimer
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'btn btn-sm btn-danger';
+        deleteBtn.innerHTML = '<i class="bi bi-trash"></i>';
+        deleteBtn.title = 'Supprimer';
+        deleteBtn.onclick = () => deleteScript(script);
+        
+        buttonsDiv.appendChild(executeBtn);
+        buttonsDiv.appendChild(editBtn);
+        buttonsDiv.appendChild(deleteBtn);
+        
+        item.appendChild(nameSpan);
+        item.appendChild(buttonsDiv);
+        scriptsList.appendChild(item);
       });
+    } catch (error) {
+      console.error('Erreur lors du chargement de la liste des scripts:', error);
+      appendToConsole('Erreur lors du chargement de la liste des scripts', 'error');
+    }
   }
   
-  // Fonction pour charger un script dans l'éditeur
-  function loadScript(name) {
-    fetch(`/api/scripts/${name}`)
-      .then(response => {
-        if (!response.ok) {
-          throw new Error('Script non trouvé');
-        }
-        return response.json();
-      })
-      .then(data => {
-        editor.setValue(data.content);
-        document.getElementById('scriptName').value = name;
-        currentScript = name;
-        appendToConsole(`Script "${name}" chargé dans l'éditeur.`, 'success');
-      })
-      .catch(error => {
-        console.error('Erreur lors du chargement du script:', error);
-        appendToConsole('Erreur: ' + error.message, 'error');
-      });
+  // Fonction pour charger un script
+  async function loadScript(name) {
+    try {
+      const response = await fetch(`/api/scripts/${name}`);
+      const data = await response.json();
+      
+      document.getElementById('scriptName').value = data.name;
+      editor.setValue(data.content);
+      currentScript = data.name;
+    } catch (error) {
+      console.error('Erreur lors du chargement du script:', error);
+      appendToConsole('Erreur lors du chargement du script', 'error');
+    }
   }
   
   // Fonction pour sauvegarder un script
-  function saveScript() {
-    const name = document.getElementById('scriptName').value.trim();
+  async function saveScript() {
+    const name = document.getElementById('scriptName').value;
     const content = editor.getValue();
     
     if (!name) {
-      appendToConsole('Erreur: Veuillez spécifier un nom pour le script.', 'error');
+      alert('Veuillez saisir un nom pour le script');
       return;
     }
     
-    if (!content) {
-      appendToConsole('Erreur: Le contenu du script est vide.', 'error');
-      return;
-    }
-    
-    const method = currentScript === name ? 'PUT' : 'POST';
-    const url = currentScript === name ? `/api/scripts/${name}` : '/api/scripts';
-    
-    fetch(url, {
-      method: method,
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ name, content })
-    })
-      .then(response => {
-        if (!response.ok) {
-          throw new Error('Erreur lors de la sauvegarde du script');
-        }
-        return response.json();
-      })
-      .then(data => {
-        currentScript = name;
-        appendToConsole(`Script "${name}" sauvegardé avec succès.`, 'success');
-        loadScriptsList();
-      })
-      .catch(error => {
-        console.error('Erreur:', error);
-        appendToConsole('Erreur: ' + error.message, 'error');
+    try {
+      const response = await fetch('/api/scripts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ name, content })
       });
+      
+      if (response.ok) {
+        appendToConsole(`Script "${name}" sauvegardé avec succès`, 'success');
+        loadScriptsList();
+      } else {
+        const error = await response.json();
+        throw new Error(error.error);
+      }
+    } catch (error) {
+      console.error('Erreur lors de la sauvegarde du script:', error);
+      appendToConsole('Erreur lors de la sauvegarde du script: ' + error.message, 'error');
+    }
   }
   
   // Fonction pour supprimer un script
-  function deleteScript(name) {
+  async function deleteScript(name) {
     if (!confirm(`Êtes-vous sûr de vouloir supprimer le script "${name}" ?`)) {
       return;
     }
     
-    fetch(`/api/scripts/${name}`, {
-      method: 'DELETE'
-    })
-      .then(response => {
-        if (!response.ok) {
-          throw new Error('Erreur lors de la suppression du script');
-        }
-        return response.json();
-      })
-      .then(data => {
-        appendToConsole(`Script "${name}" supprimé avec succès.`, 'success');
-        
-        if (currentScript === name) {
-          editor.setValue('');
-          document.getElementById('scriptName').value = '';
-          currentScript = '';
-        }
-        
-        loadScriptsList();
-      })
-      .catch(error => {
-        console.error('Erreur:', error);
-        appendToConsole('Erreur: ' + error.message, 'error');
+    try {
+      const response = await fetch(`/api/scripts/${name}`, {
+        method: 'DELETE'
       });
+      
+      if (response.ok) {
+        appendToConsole(`Script "${name}" supprimé avec succès`, 'success');
+        loadScriptsList();
+      } else {
+        const error = await response.json();
+        throw new Error(error.error);
+      }
+    } catch (error) {
+      console.error('Erreur lors de la suppression du script:', error);
+      appendToConsole('Erreur lors de la suppression du script: ' + error.message, 'error');
+    }
   }
   
   // Fonction pour exécuter un script
-  function executeScript(name, credentials = null) {
+  function executeScript(name) {
+    clearConsole();
     appendToConsole(`Exécution du script "${name}"...`, 'command');
-    currentScriptToExecute = name;
     
-    socket.emit('execute-script', name, credentials);
-  }
-  
-  // Gestionnaire d'événement pour le bouton de sauvegarde
-  document.getElementById('saveScript').addEventListener('click', saveScript);
-  
-  // Gestionnaire d'événement pour effacer la console
-  document.getElementById('clearConsole').addEventListener('click', clearConsole);
-  
-  // Gestionnaire d'événement pour soumettre les identifiants
-  document.getElementById('submitCredentials').addEventListener('click', function() {
-    const email = document.getElementById('email').value;
-    const password = document.getElementById('password').value;
-    
-    if (!email || !password) {
-      alert('Veuillez renseigner tous les champs.');
-      return;
+    // Déterminer le service en fonction du nom du script
+    let service = 'exchange';
+    if (name.includes('azure')) {
+      service = 'azure';
     }
     
-    credentialsModal.hide();
-    
-    // Réinitialiser le formulaire
-    document.getElementById('credentialsForm').reset();
-    
-    // Exécuter le script avec les identifiants
-    executeScript(currentScriptToExecute, { email, password });
-  });
+    socket.emit('execute-script', { scriptName: name, service });
+  }
+  
+  // Gestionnaires d'événements
+  document.getElementById('saveScript').addEventListener('click', saveScript);
+  document.getElementById('clearConsole').addEventListener('click', clearConsole);
   
   // Écouter les événements Socket.IO
   socket.on('script-output', function(data) {
-    appendToConsole(data.output);
-  });
-  
-  socket.on('script-error', function(data) {
-    appendToConsole(data.error, 'error');
-  });
-  
-  socket.on('execution-completed', function(data) {
-    appendToConsole('Exécution terminée.', 'success');
+    if (data.output) {
+      appendToConsole(data.output);
+    }
   });
   
   socket.on('execution-error', function(data) {
-    appendToConsole('Erreur: ' + data.error, 'error');
+    if (data.message) {
+      appendToConsole('Erreur: ' + data.message, 'error');
+    }
+    if (data.stack) {
+      appendToConsole('Stack trace: ' + data.stack, 'error');
+    }
   });
   
-  socket.on('credentials-required', function(data) {
-    appendToConsole('Ce script nécessite des droits administrateur.', 'command');
-    currentScriptToExecute = data.scriptName;
-    credentialsModal.show();
+  socket.on('execution-completed', function(data) {
+    appendToConsole('Exécution terminée avec succès.', 'success');
   });
   
-  // Charger la liste initiale des scripts
+  // Charger la liste des scripts au démarrage
   loadScriptsList();
 }); 
