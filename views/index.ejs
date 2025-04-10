@@ -11,17 +11,46 @@
   <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
-  <div class="container-fluid">
-    <div class="row mt-3 mb-2">
-      <div class="col">
-        <h1 class="text-center">
-          PowerShell Web Editor
-          <% if (sslEnabled) { %>
-            <span class="badge bg-success"><i class="bi bi-shield-check"></i> SSL</span>
-          <% } %>
-        </h1>
+  <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="/">PowerShell Web Editor</a>
+      <div class="d-flex align-items-center">
+        <% if (user) { %>
+          <span class="text-light me-3">
+            <i class="bi bi-person-circle"></i>
+            <%= user.displayName %> (<%= user.userPrincipalName %>)
+          </span>
+          <a href="/auth/logout" class="btn btn-outline-light btn-sm">
+            <i class="bi bi-box-arrow-right"></i> Déconnexion
+          </a>
+        <% } %>
       </div>
     </div>
+  </nav>
+
+  <div class="container-fluid mt-3">
+    <div class="row mb-3">
+      <div class="col">
+        <ul class="nav nav-pills">
+          <li class="nav-item">
+            <a class="nav-link active" href="/">
+              <i class="bi bi-file-earmark-code"></i> Éditeur de Scripts
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="/shell">
+              <i class="bi bi-terminal"></i> Shell PowerShell
+            </a>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <% if (sslEnabled) { %>
+      <div class="text-end mb-2">
+        <span class="badge bg-success"><i class="bi bi-shield-check"></i> SSL</span>
+      </div>
+    <% } %>
 
     <% if (!isWindows) { %>
     <div class="row">

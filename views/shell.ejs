@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PowerShell Shell - Web Editor</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <style>
+        #shell-output {
+            background-color: #1e1e1e;
+            color: #ffffff;
+            font-family: 'Consolas', monospace;
+            padding: 10px;
+            height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            margin-bottom: 10px;
+        }
+        #command-input {
+            font-family: 'Consolas', monospace;
+            background-color: #2d2d2d;
+            color: #ffffff;
+            border: 1px solid #3d3d3d;
+        }
+        .success {
+            color: #4CAF50;
+        }
+        .error {
+            color: #f44336;
+        }
+        .command {
+            color: #2196F3;
+        }
+        .nav-link.active {
+            background-color: #0d6efd !important;
+            color: white !important;
+        }
+    </style>
+</head>
+<body>
+    <%- include('partials/header') %>
+
+    <div class="container-fluid mt-3">
+        <div class="row mb-3">
+            <div class="col">
+                <ul class="nav nav-pills">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/">Éditeur de Scripts</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/shell">Shell PowerShell</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">Shell PowerShell</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="terminal" class="bg-dark text-light p-3" style="height: 400px; overflow-y: auto; font-family: monospace;">
+                            <div id="output"></div>
+                            <div class="input-line">
+                                <span class="prompt text-info">PS></span>
+                                <input type="text" id="command-input" class="command-input bg-dark text-light border-0" style="width: calc(100% - 40px); outline: none;">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        const terminal = document.getElementById('terminal');
+        const output = document.getElementById('output');
+        const commandInput = document.getElementById('command-input');
+
+        function appendOutput(text, isError = false) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            if (isError) {
+                div.classList.add('text-danger');
+            }
+            output.appendChild(div);
+            terminal.scrollTop = terminal.scrollHeight;
+        }
+
+        commandInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                const command = commandInput.value;
+                appendOutput('PS> ' + command);
+                socket.emit('execute-command', command);
+                commandInput.value = '';
+            }
+        });
+
+        socket.on('command-output', (data) => {
+            appendOutput(data);
+        });
+
+        socket.on('command-error', (data) => {
+            appendOutput(data, true);
+        });
+
+        socket.on('command-end', () => {
+            commandInput.disabled = false;
+            commandInput.focus();
+        });
+
+        // Focus initial sur l'input
+        commandInput.focus();
+    </script>
+
+    <%- include('partials/footer') %>
+</body>
+</html> 
