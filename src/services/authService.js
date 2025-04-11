@@ -1,181 +1,117 @@
-const { ConfidentialClientApplication } = require('@azure/msal-node');
-const { PowerShell } = require('node-powershell');
-const { msalConfig, authScopes } = require('../config/auth');
+const { Client } = require('@microsoft/microsoft-graph-client');
+const { TokenCredentialAuthenticationProvider } = require('@microsoft/microsoft-graph-client/authProviders/azureTokenCredentials');
+const { ClientSecretCredential } = require('@azure/identity');
+const config = require('../config/config');
+const UserManager = require('../models/User');
+const fetch = require('node-fetch');
 
 class AuthService {
     constructor() {
-        // Vérifier si nous sommes en mode démonstration
-        this.demoMode = process.env.DEMO_MODE === 'true';
-        
-        if (!this.demoMode) {
-            this.config = {
-                auth: {
-                    clientId: process.env.AZURE_CLIENT_ID,
-                    clientSecret: process.env.AZURE_CLIENT_SECRET,
-                    authority: `https://login.microsoftonline.com/${process.env.AZURE_TENANT_ID}`,
-                    redirectUri: process.env.AZURE_REDIRECT_URI || 'http://localhost:3000/auth/callback'
-                }
-            };
-            
-            this.msalClient = new ConfidentialClientApplication(this.config);
-            console.log('Mode d\'authentification Azure activé');
-        } else {
-            console.log('Mode démonstration activé (sans authentification Azure)');
-        }
+        this.credential = new ClientSecretCredential(
+            config.auth.azureAd.tenantId,
+            config.auth.azureAd.clientId,
+            config.auth.azureAd.clientSecret
+        );
+        this.authProvider = new TokenCredentialAuthenticationProvider(this.credential, {
+            scopes: ['https://graph.microsoft.com/.default']
+        });
+        this.client = Client.initWithMiddleware({
+            authProvider: this.authProvider
+        });
     }
 
-    // Générer l'URL de connexion
     async getAuthUrl() {
-        if (this.demoMode) {
-            return '/auth/demo-login';
-        }
-        
-        const state = this.generateState();
-        const authCodeUrlParameters = {
-            scopes: authScopes.userScopes,
-            redirectUri: this.config.auth.redirectUri,
-            state: state
-        };
-        
-        return await this.msalClient.getAuthCodeUrl(authCodeUrlParameters);
-    }
-
-    // Gérer le callback de l'authentification
-    async handleCallback(code) {
-        if (this.demoMode) {
-            return {
-                accessToken: 'demo-token',
-                expiresOn: new Date(Date.now() + 3600000).toISOString()
-            };
-        }
-        
-        const tokenRequest = {
-            code: code,
-            scopes: ['https://management.azure.com/.default'],
-            redirectUri: this.config.auth.redirectUri,
-        };
-        
-        const response = await this.msalClient.acquireTokenByCode(tokenRequest);
-        
-        return {
-            accessToken: response.accessToken,
-            expiresOn: response.expiresOn
-        };
-    }
-
-    // Générer un état aléatoire pour la sécurité
-    generateState() {
-        return Math.random().toString(36).substring(2, 15);
-    }
-
-    // Obtenir les informations de l'utilisateur
-    async getUserInfo(accessToken) {
-        if (this.demoMode) {
-            return {
-                displayName: 'Demo User',
-                userPrincipalName: 'demo@example.com',
-                id: 'demo-id'
-            };
-        }
-        
-        // Dans une version simplifiée, on peut retourner des informations basiques
-        return {
-            displayName: 'Utilisateur Azure',
-            userPrincipalName: 'user@example.com',
-            id: 'user-id'
-        };
-    }
-
-    // Nettoyer la sortie des caractères de contrôle ANSI
-    cleanOutput(output) {
-        if (!output) return '';
-        return output
-            .replace(/\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g, '') // Supprime les séquences ANSI
-            .replace(/\[[\d;]*[a-zA-Z]/g, '') // Supprime les codes de couleur
-            .replace(/\[\?1[hl]/g, '') // Supprime les codes de curseur
-            .replace(/\r\n/g, '\n') // Normalise les retours à la ligne
-            .replace(/\n{3,}/g, '\n\n') // Réduit les lignes vides multiples
-            .trim(); // Supprime les espaces en début et fin
-    }
-
-    // Exécuter un script PowerShell
-    async executePowerShellWithToken(scriptContent, service, accessToken) {
-        if (this.demoMode) {
-            return `Mode démonstration: Exécution simulée du script\n${scriptContent}`;
-        }
-        
-        // Vérifier si le script nécessite une authentification
-        const requiresAuth = this.scriptRequiresAuth(scriptContent, service);
-        
-        let ps = null;
         try {
-            ps = new PowerShell({
-                executionPolicy: 'Bypass',
-                noProfile: true
+            const authUrl = `https://login.microsoftonline.com/${config.auth.azureAd.tenantId}/oauth2/v2.0/authorize?` +
+                `client_id=${config.auth.azureAd.clientId}` +
+                `&response_type=code` +
+                `&redirect_uri=${encodeURIComponent(config.auth.azureAd.redirectUri)}` +
+                `&scope=openid profile email User.Read GroupMember.Read.All`;
+            
+            return authUrl;
+        } catch (error) {
+            console.error('Erreur lors de la génération de l\'URL d\'authentification:', error);
+            throw new Error('Impossible de générer l\'URL d\'authentification');
+        }
+    }
+
+    async handleCallback(code) {
+        try {
+            const tokenEndpoint = `https://login.microsoftonline.com/${config.auth.azureAd.tenantId}/oauth2/v2.0/token`;
+            const params = new URLSearchParams();
+            params.append('client_id', config.auth.azureAd.clientId);
+            params.append('client_secret', config.auth.azureAd.clientSecret);
+            params.append('code', code);
+            params.append('redirect_uri', config.auth.azureAd.redirectUri);
+            params.append('grant_type', 'authorization_code');
+            params.append('scope', 'openid profile email User.Read GroupMember.Read.All');
+
+            const response = await fetch(tokenEndpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: params
             });
 
-            let commands = [];
-            
-            // Configuration de base
-            commands.push('$ErrorActionPreference = "Stop"');
-            commands.push('$ProgressPreference = "SilentlyContinue"');
-            commands.push('$VerbosePreference = "SilentlyContinue"');
-            commands.push('$DebugPreference = "SilentlyContinue"');
-            commands.push('$InformationPreference = "SilentlyContinue"');
-            commands.push('$Host.UI.RawUI.WindowTitle = "PowerShell"');
-
-            // Ajouter le token d'accès uniquement si nécessaire
-            if (requiresAuth && accessToken) {
-                commands.push(`$env:AZURE_ACCESS_TOKEN = '${accessToken}'`);
+            if (!response.ok) {
+                const errorData = await response.json();
+                console.error('Erreur lors de l\'échange du code:', errorData);
+                throw new Error(`Erreur lors de l'échange du code: ${errorData.error_description || 'Erreur inconnue'}`);
             }
 
-            // Ajouter le script à exécuter
-            commands.push(scriptContent);
-
-            // Exécuter toutes les commandes en une fois
-            const result = await ps.invoke(commands.join('; '));
-            return this.cleanOutput(result.raw);
-
+            const data = await response.json();
+            return {
+                accessToken: data.access_token,
+                idToken: data.id_token,
+                expiresIn: data.expires_in
+            };
         } catch (error) {
-            console.error('Erreur PowerShell:', error);
-            throw error;
-        } finally {
-            if (ps) {
-                await ps.dispose();
-            }
+            console.error('Erreur lors du traitement du callback:', error);
+            throw new Error('Erreur lors de l\'authentification');
         }
     }
 
-    // Vérifier si un script nécessite une authentification
-    scriptRequiresAuth(scriptContent, service) {
-        // Liste des commandes qui nécessitent une authentification
-        const authCommands = [
-            'Connect-AzAccount',
-            'Connect-AzureAD',
-            'Connect-ExchangeOnline',
-            'Connect-MgGraph',
-            'Connect-MicrosoftTeams',
-            'Connect-PnPOnline',
-            'Connect-SPOService',
-            'Connect-SPOnline'
-        ];
-        
-        // Vérifier si le script contient des commandes d'authentification
-        for (const cmd of authCommands) {
-            if (scriptContent.includes(cmd)) {
-                return true;
+    async getUserInfo(accessToken) {
+        try {
+            if (!accessToken) {
+                throw new Error('Token d\'accès manquant');
             }
+
+            const response = await fetch('https://graph.microsoft.com/v1.0/me', {
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Accept': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                console.error('Erreur lors de la récupération des informations utilisateur:', errorData);
+                throw new Error(`Erreur lors de la récupération des informations utilisateur: ${errorData.error?.message || 'Erreur inconnue'}`);
+            }
+
+            const userInfo = await response.json();
+            console.log('Informations utilisateur récupérées:', userInfo);
+
+            // Vérifier si l'utilisateur existe déjà dans notre système
+            let user = await UserManager.getUser(userInfo.id);
+            
+            if (!user) {
+                // Si l'utilisateur n'existe pas, le créer
+                user = await UserManager.createUser(userInfo);
+                console.log('Nouvel utilisateur créé:', user);
+            }
+
+            // Mettre à jour les informations de l'utilisateur avec les données d'Azure AD
+            userInfo.isAdmin = user.isAdmin;
+
+            return userInfo;
+        } catch (error) {
+            console.error('Erreur dans getUserInfo:', error);
+            throw new Error(`Erreur lors de la récupération des informations utilisateur: ${error.message}`);
         }
-        
-        // Vérifier le service spécifié
-        if (service === 'azure' || service === 'exchange' || service === 'graph') {
-            return true;
-        }
-        
-        return false;
     }
 }
 
-// Créer et exporter une instance unique du service d'authentification
-const authService = new AuthService();
-module.exports = authService; 
+module.exports = new AuthService(); 

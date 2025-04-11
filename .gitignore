@@ -1,5 +1,34 @@
-node_modules
+# Dépendances
+node_modules/
+
+# Fichiers d'environnement
 .env
-/ssl
-/sessions
-/logs
+.env.local
+.env.*
+!.env.example
+
+# Dossiers de données
+sessions/
+scripts/
+ssl/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Système
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# Build
+dist/
+build/
+
+data/

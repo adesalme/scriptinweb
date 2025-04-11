@@ -1,0 +1,146 @@
+<%- include('partials/header') %>
+
+<div class="container-fluid mt-4">
+  <div class="row">
+    <div class="col-md-6">
+      <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h5 class="mb-0">Script: <%= script.name %></h5>
+          <div>
+            <button id="executeBtn" class="btn btn-primary">Exécuter</button>
+            <button id="stopBtn" class="btn btn-danger" disabled>Arrêter</button>
+          </div>
+        </div>
+        <div class="card-body">
+          <div id="editor" style="height: 500px;"><%= script.content %></div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="card">
+        <div class="card-header">
+          <h5 class="mb-0">Console PowerShell</h5>
+        </div>
+        <div class="card-body">
+          <div id="output" class="bg-dark text-light p-3" style="height: 500px; overflow-y: auto; font-family: monospace;">
+            <div class="text-muted">En attente d'exécution...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ace.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/mode-powershell.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/theme-monokai.js"></script>
+<script>
+  // Initialiser l'éditeur Ace
+  const editor = ace.edit("editor");
+  editor.setTheme("ace/theme/monokai");
+  editor.session.setMode("ace/mode/powershell");
+  editor.setOptions({
+    fontSize: "14px",
+    showPrintMargin: false,
+    enableBasicAutocompletion: true,
+    enableLiveAutocompletion: true
+  });
+
+  // Éléments DOM
+  const outputDiv = document.getElementById('output');
+  const executeBtn = document.getElementById('executeBtn');
+  const stopBtn = document.getElementById('stopBtn');
+  let socket = null;
+  let isExecuting = false;
+
+  // Fonction pour ajouter du texte à la console
+  function appendToOutput(text, isError = false) {
+    const line = document.createElement('div');
+    line.textContent = text;
+    if (isError) {
+      line.classList.add('text-danger');
+    }
+    outputDiv.appendChild(line);
+    outputDiv.scrollTop = outputDiv.scrollHeight;
+  }
+
+  // Fonction pour effacer la console
+  function clearOutput() {
+    outputDiv.innerHTML = '';
+  }
+
+  // Fonction pour exécuter le script
+  function executeScript() {
+    if (isExecuting) return;
+    
+    clearOutput();
+    appendToOutput('Démarrage de l\'exécution du script...');
+    
+    // Récupérer le contenu du script
+    const scriptContent = editor.getValue();
+    
+    // Créer une connexion WebSocket
+    socket = new WebSocket(`ws://${window.location.host}`);
+    
+    socket.onopen = function() {
+      appendToOutput('Connexion établie avec le serveur');
+      socket.send(JSON.stringify({
+        action: 'execute-interactive',
+        scriptName: '<%= script.name %>',
+        content: scriptContent
+      }));
+      isExecuting = true;
+      executeBtn.disabled = true;
+      stopBtn.disabled = false;
+    };
+    
+    socket.onmessage = function(event) {
+      const data = JSON.parse(event.data);
+      
+      if (data.type === 'output') {
+        appendToOutput(data.content);
+      } else if (data.type === 'error') {
+        appendToOutput(data.content, true);
+      } else if (data.type === 'complete') {
+        appendToOutput('Exécution terminée');
+        isExecuting = false;
+        executeBtn.disabled = false;
+        stopBtn.disabled = true;
+        socket.close();
+      }
+    };
+    
+    socket.onerror = function(error) {
+      appendToOutput('Erreur de connexion: ' + error.message, true);
+      isExecuting = false;
+      executeBtn.disabled = false;
+      stopBtn.disabled = true;
+    };
+    
+    socket.onclose = function() {
+      if (isExecuting) {
+        appendToOutput('Connexion fermée par le serveur', true);
+        isExecuting = false;
+        executeBtn.disabled = false;
+        stopBtn.disabled = true;
+      }
+    };
+  }
+
+  // Fonction pour arrêter l'exécution
+  function stopExecution() {
+    if (socket && isExecuting) {
+      socket.send(JSON.stringify({ action: 'stop' }));
+      appendToOutput('Arrêt de l\'exécution...');
+      isExecuting = false;
+      executeBtn.disabled = false;
+      stopBtn.disabled = true;
+    }
+  }
+
+  // Événements
+  executeBtn.addEventListener('click', executeScript);
+  stopBtn.addEventListener('click', stopExecution);
+</script>
+
+<%- include('partials/footer') %> 

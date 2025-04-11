@@ -1,173 +1,91 @@
-# ScriptInWeb
+# PowerShell Web Editor
 
-Une application web pour éditer et exécuter des scripts PowerShell en temps réel, avec authentification Azure AD et support pour Windows et Linux (via PowerShell Core).
+Une application web pour éditer et exécuter des scripts PowerShell avec authentification Azure AD.
 
 ## Fonctionnalités
 
-- Interface utilisateur web pour créer, éditer, et gérer des scripts PowerShell
-- Exécution en temps réel avec affichage des résultats dans une console intégrée
-- Shell PowerShell interactif intégré à l'interface web
-- Authentification via Azure AD (Microsoft Entra ID)
-- Mode démonstration pour tester sans configuration Azure
-- Support de Windows et Linux (avec PowerShell Core)
-- Support SSL pour sécuriser les connexions
-- Stockage des sessions dans des fichiers pour une meilleure persistance
+- Authentification via Azure AD
+- Édition de scripts PowerShell avec coloration syntaxique
+- Exécution de scripts en temps réel
+- Support des scripts administratifs
+- Interface utilisateur moderne et responsive
+- Support SSL/HTTPS
 
 ## Prérequis
 
-- Node.js v14+
-- PowerShell Core (pwsh) pour Linux/macOS ou PowerShell pour Windows
-- Certificats SSL (optionnel, mais recommandé pour la production)
+- Node.js 14+
+- PowerShell Core (pwsh)
+- Compte Azure AD pour l'authentification
 
 ## Installation
 
-### Option 1 : Installation automatique (Linux)
+1. Clonez le dépôt :
+   ```bash
+   git clone https://github.com/votre-compte/powershell-web-editor.git
+   cd powershell-web-editor
+   ```
 
-Un script d'installation est fourni pour configurer automatiquement tous les prérequis sur Linux :
+2. Installez les dépendances :
+   ```bash
+   npm install
+   ```
 
-```bash
-# Rendre le script exécutable
-chmod +x install-prerequisites.sh
+3. Copiez le fichier d'exemple de configuration :
+   ```bash
+   cp .env.example .env
+   ```
 
-# Exécuter le script en tant que root
-sudo ./install-prerequisites.sh
-```
-
-Ce script installe :
-- PowerShell Core
-- Modules PowerShell nécessaires (ExchangeOnlineManagement, Az)
-- Node.js et npm
-- Dépendances du projet
-
-### Option 2 : Installation manuelle
-
-```bash
-# Cloner le dépôt
-git clone <repo-url>
-cd scriptinweb
-
-# Installer les dépendances
-npm install
-
-# Créer les dossiers nécessaires
-mkdir -p scripts
-mkdir -p certs
-```
+4. Configurez les variables d'environnement dans le fichier `.env`
 
 ## Configuration
 
-Toutes les configurations sont centralisées dans le fichier `.env` :
+### Variables d'environnement
+
+- `NODE_ENV` : Environnement (development/production)
+- `PORT` : Port HTTP
+- `HTTPS_PORT` : Port HTTPS
+- `HOST` : Nom d'hôte
+- `SSL_ENABLED` : Activer/désactiver SSL
+- `AZURE_AD_*` : Configuration Azure AD
+- Voir `.env.example` pour la liste complète
+
+### SSL/HTTPS
+
+Pour activer HTTPS :
+1. Placez vos certificats dans le dossier `ssl/`
+2. Configurez `SSL_ENABLED=true` dans `.env`
+3. Définissez les chemins des certificats dans `.env`
+
+## Structure du projet
+
+```
+/
+├── src/            # Code source
+├── public/         # Fichiers statiques
+├── views/          # Templates EJS
+├── scripts/        # Scripts PowerShell
+├── ssl/           # Certificats SSL
+└── sessions/      # Sessions utilisateurs
+```
+
+## Développement
 
 ```bash
-# Copier le fichier d'exemple
-cp .env.example .env
-
-# Modifier les variables selon votre environnement
-```
-
-### Variables de configuration principales
-
-```
-# Configuration du serveur
-PORT=3000
-HTTPS_PORT=8443
-HOST=localhost
-
-# Configuration SSL
-SSL_ENABLED=true
-SSL_CERT_PATH=/ssl/cert.pem
-SSL_KEY_PATH=/ssl/key.pem
-
-# Configuration Azure AD
-AZURE_CLIENT_ID=your_client_id
-AZURE_CLIENT_SECRET=your_client_secret
-AZURE_TENANT_ID=your_tenant_id
-AZURE_REDIRECT_URI=https://adresse.domaine.com/auth/callback
-
-# Configuration de l'application
-APP_NAME=ScriptInWeb
-APP_URL=https://adresse.domaine.com 
-APP_DESCRIPTION=Éditeur de scripts PowerShell avec authentification Azure AD
-
-# Configuration des dossiers
-SCRIPTS_DIR=scripts
-CERTIFICATES_DIR=certs
-
-# Configuration de la session
-SESSION_SECRET=your_session_secret
-SESSION_STORE_PATH=./sessions
-
-# Configuration du mode démonstration
-DEMO_MODE=false
-```
-
-## Démarrage de l'application
-
-### Mode production
-
-```bash
-npm start
-```
-
-### Mode développement
-
-```bash
+# Mode développement
 npm run dev
-```
 
-## Mode démonstration
-
-Pour tester l'application sans configuration Azure AD, activez le mode démonstration dans le fichier `.env` :
-
-```
-DEMO_MODE=true
-```
-
-En mode démonstration :
-- L'authentification Azure AD est désactivée
-- Les commandes PowerShell sont simulées
-- Aucune connexion à Azure n'est établie
-
-## Utilisation de PowerShell Core sur Linux
-
-L'application utilise PowerShell Core (pwsh) sur les systèmes Linux. Pour des fonctionnalités Exchange Online et Azure, vous devrez installer les modules appropriés :
-
-```powershell
-# Dans PowerShell Core (pwsh)
-Install-Module -Name ExchangeOnlineManagement -Force
-Install-Module -Name Az -Force -AllowClobber
-```
-
-## Structure des dossiers
-
-- `src/` - Code source JavaScript de l'application
-  - `app.js` - Point d'entrée de l'application
-  - `services/` - Services de l'application (authentification, PowerShell)
-- `views/` - Templates EJS pour l'interface utilisateur
-- `public/` - Fichiers statiques (CSS, JavaScript, images)
-- `scripts/` - Dossier pour stocker les scripts PowerShell
-- `certs/` - Dossier pour les certificats SSL
-- `sessions/` - Dossier pour le stockage des sessions
-
-## Déploiement avec Docker
-
-Un fichier `docker-compose.yml` est fourni pour faciliter le déploiement avec Docker :
-
-```bash
-docker-compose up -d
+# Mode production
+npm start
 ```
 
 ## Sécurité
 
-- Les sessions sont stockées dans des fichiers pour une meilleure persistance
-- Les certificats SSL sont utilisés pour sécuriser les connexions
-- L'authentification Azure AD protège l'accès à l'application
-- Les secrets sont stockés dans le fichier `.env` (non versionné)
-
-## Contribution
-
-Les contributions sont les bienvenues ! N'hésitez pas à ouvrir une issue ou à soumettre une pull request.
+- Authentification via Azure AD
+- Support SSL/HTTPS
+- Validation des entrées
+- Protection CSRF
+- Sessions sécurisées
 
 ## Licence
 
-ISC
+MIT

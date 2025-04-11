@@ -6,7 +6,7 @@ const msalConfig = {
         clientId: process.env.AZURE_CLIENT_ID,
         clientSecret: process.env.AZURE_CLIENT_SECRET,
         authority: `https://login.microsoftonline.com/${process.env.AZURE_TENANT_ID}`,
-        redirectUri: process.env.AZURE_REDIRECT_URI || 'https://scriptinweb.chateauform.com:8443/auth/callback'
+        redirectUri: process.env.AZURE_REDIRECT_URI || `http${process.env.SSL_ENABLED === 'true' ? 's' : ''}://localhost:${process.env.SSL_ENABLED === 'true' ? '8443' : '3000'}/auth/callback`
     },
     system: {
         loggerOptions: {
@@ -22,8 +22,12 @@ const msalConfig = {
 // Configuration des scopes d'authentification
 const authScopes = {
     userScopes: [
-        'https://management.azure.com/.default',
-        'https://graph.microsoft.com/.default'
+        // Scopes d'authentification de base
+        'email',
+        'offline_access',
+        'openid',
+        'profile',
+        'User.Read'
     ]
 };
 

@@ -1,0 +1,131 @@
+<%- include('../partials/header') %>
+
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1>Exécution du script : <%= script.name %></h1>
+                <a href="/admin/scripts" class="btn btn-secondary">
+                    <i class="bi bi-arrow-left"></i> Retour
+                </a>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Contenu du script</h5>
+                </div>
+                <div class="card-body">
+                    <div id="editor"></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">Console PowerShell</h5>
+                    <div>
+                        <button class="btn btn-success me-2" onclick="executeScript()">
+                            <i class="bi bi-play-fill"></i> Exécuter
+                        </button>
+                        <button class="btn btn-danger" onclick="stopExecution()">
+                            <i class="bi bi-stop-fill"></i> Arrêter
+                        </button>
+                        <button class="btn btn-secondary" onclick="clearConsole()">
+                            <i class="bi bi-trash-fill"></i> Effacer
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="console" class="console"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let editor = null;
+const socket = io();
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialisation de l'éditeur CodeMirror
+    editor = CodeMirror(document.getElementById('editor'), {
+        mode: 'powershell',
+        theme: 'monokai',
+        lineNumbers: true,
+        readOnly: true,
+        value: `<%= script.content.replace(/`/g, '\\`').replace(/\$/g, '\\$') %>`
+    });
+
+    // Gestion des événements Socket.IO
+    socket.on('script-output', function(data) {
+        appendToConsole(data);
+    });
+
+    socket.on('script-error', function(error) {
+        appendToConsole(error, 'error');
+    });
+
+    socket.on('execution-completed', function() {
+        appendToConsole('Exécution terminée', 'success');
+    });
+});
+
+function executeScript() {
+    clearConsole();
+    appendToConsole(`Exécution du script "${<%= script.name %>}"...`, 'command');
+    socket.emit('execute-script', { 
+        scriptName: '<%= script.name %>', 
+        service: 'admin'
+    });
+}
+
+function stopExecution() {
+    socket.emit('stop-execution');
+    appendToConsole('Exécution arrêtée', 'warning');
+}
+
+function clearConsole() {
+    document.getElementById('console').innerHTML = '';
+}
+
+function appendToConsole(text, className = '') {
+    const console = document.getElementById('console');
+    const element = document.createElement('div');
+    element.textContent = text;
+    if (className) {
+        element.classList.add(className);
+    }
+    console.appendChild(element);
+    console.scrollTop = console.scrollHeight;
+}
+</script>
+
+<style>
+.console {
+    background-color: #1e1e1e;
+    color: #ffffff;
+    font-family: 'Consolas', monospace;
+    padding: 10px;
+    height: 400px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+}
+
+.console .error {
+    color: #ff6b6b;
+}
+
+.console .success {
+    color: #51cf66;
+}
+
+.console .warning {
+    color: #ffd43b;
+}
+
+.console .command {
+    color: #4dabf7;
+}
+</style>
+
+<%- include('../partials/footer') %> 

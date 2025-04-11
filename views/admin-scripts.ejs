@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= title %> - Web Editor</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/monokai.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+    <%- include('partials/nav') %>
+    
+    <div class="container-fluid mt-4">
+        <div class="row">
+            <!-- Éditeur -->
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Éditeur PowerShell</h5>
+                        <div>
+                            <button id="newScriptBtn" class="btn btn-success me-2">
+                                <i class="bi bi-plus-circle"></i> Nouveau
+                            </button>
+                            <button id="saveScriptBtn" class="btn btn-primary me-2" disabled>
+                                <i class="bi bi-save"></i> Enregistrer
+                            </button>
+                            <button id="executeBtn" class="btn btn-primary">
+                                <i class="bi bi-play-fill"></i> Exécuter
+                            </button>
+                            <button id="stopBtn" class="btn btn-danger" disabled>
+                                <i class="bi bi-stop-fill"></i> Arrêter
+                            </button>
+                            <button id="clearBtn" class="btn btn-secondary">
+                                <i class="bi bi-trash"></i> Effacer
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div id="editor" style="height: 400px;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Liste des scripts -->
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Scripts Administratifs</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="list-group">
+                            <% scripts.forEach(function(script) { %>
+                                <div class="list-group-item">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <h6 class="mb-1"><%= script.name %></h6>
+                                        <div>
+                                            <button class="btn btn-sm btn-primary" onclick="loadScript('<%= script.name %>')">
+                                                <i class="bi bi-pencil"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-success" onclick="executeScript('<%= script.name %>')">
+                                                <i class="bi bi-play"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-danger" onclick="deleteScript('<%= script.name %>')">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <p class="mb-1 text-muted"><%= script.description %></p>
+                                </div>
+                            <% }); %>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Console interactive -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Console PowerShell Interactive</h5>
+                        <div>
+                            <button id="clearConsoleBtn" class="btn btn-secondary btn-sm">
+                                <i class="bi bi-trash"></i> Effacer la console
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body bg-dark">
+                        <div id="console" class="text-light" style="height: 300px; overflow-y: auto; font-family: monospace; white-space: pre-wrap;"></div>
+                        <div class="mt-2 d-flex">
+                            <input type="text" id="shellInput" class="form-control bg-dark text-light" placeholder="Entrez une commande PowerShell...">
+                            <button id="shellExecuteBtn" class="btn btn-primary ms-2">
+                                <i class="bi bi-arrow-return-right"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Nouveau Script -->
+    <div id="newScriptModal" class="modal fade" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Nouveau Script</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="newScriptForm">
+                        <div class="mb-3">
+                            <label for="scriptName" class="form-label">Nom du script</label>
+                            <input type="text" class="form-control" id="scriptName" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="scriptDescription" class="form-label">Description</label>
+                            <textarea class="form-control" id="scriptDescription" rows="3" required></textarea>
+                        </div>
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="isAdminScript" checked disabled>
+                            <label class="form-check-label" for="isAdminScript">Script administratif</label>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                    <button type="button" class="btn btn-primary" onclick="createNewScript()">Créer</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal d'authentification -->
+    <div id="auth-modal" class="modal fade" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Authentification requise</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p id="auth-message">Ce script nécessite une authentification interactive.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                    <button type="button" class="btn btn-primary" onclick="confirmInteractiveAuth()">Continuer</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/powershell/powershell.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        // Initialisation de l'éditeur
+        let editor = null;
+        document.addEventListener('DOMContentLoaded', function() {
+            editor = CodeMirror(document.getElementById('editor'), {
+                mode: 'powershell',
+                theme: 'monokai',
+                lineNumbers: true,
+                autoCloseBrackets: true,
+                matchBrackets: true,
+                indentUnit: 4,
+                tabSize: 4
+            });
+
+            // Éléments DOM
+            const consoleOutput = document.getElementById('console');
+            const executeBtn = document.getElementById('executeBtn');
+            const stopBtn = document.getElementById('stopBtn');
+            const clearBtn = document.getElementById('clearBtn');
+            const clearConsoleBtn = document.getElementById('clearConsoleBtn');
+            const shellInput = document.getElementById('shellInput');
+            const shellExecuteBtn = document.getElementById('shellExecuteBtn');
+            const saveScriptBtn = document.getElementById('saveScriptBtn');
+            const newScriptBtn = document.getElementById('newScriptBtn');
+            const newScriptModal = new bootstrap.Modal(document.getElementById('newScriptModal'));
+            const authModal = new bootstrap.Modal(document.getElementById('auth-modal'));
+
+            // Variables globales
+            let currentScript = '';
+            let socket = null;
+            let isEdited = false;
+
+            // Fonctions utilitaires
+            function appendToConsole(text, className = '') {
+                const div = document.createElement('div');
+                div.textContent = text;
+                if (className) div.className = className;
+                consoleOutput.appendChild(div);
+                consoleOutput.scrollTop = consoleOutput.scrollHeight;
+            }
+
+            function clearConsole() {
+                consoleOutput.innerHTML = '';
+            }
+
+            // Gestion des scripts
+            async function loadScript(name) {
+                try {
+                    const response = await fetch(`/api/scripts/${encodeURIComponent(name)}`);
+                    const data = await response.json();
+                    editor.setValue(data.content);
+                    currentScript = name;
+                    saveScriptBtn.disabled = false;
+                    isEdited = false;
+                } catch (error) {
+                    console.error('Erreur lors du chargement du script:', error);
+                    appendToConsole('Erreur lors du chargement du script: ' + error.message, 'text-danger');
+                }
+            }
+
+            async function saveScript() {
+                if (!currentScript) {
+                    alert('Aucun script sélectionné');
+                    return;
+                }
+
+                try {
+                    const response = await fetch(`/api/scripts/${encodeURIComponent(currentScript)}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            content: editor.getValue(),
+                            isAdmin: true
+                        })
+                    });
+
+                    if (response.ok) {
+                        appendToConsole('Script sauvegardé avec succès', 'text-success');
+                        isEdited = false;
+                        saveScriptBtn.disabled = true;
+                    } else {
+                        throw new Error('Erreur lors de la sauvegarde');
+                    }
+                } catch (error) {
+                    console.error('Erreur:', error);
+                    appendToConsole('Erreur lors de la sauvegarde: ' + error.message, 'text-danger');
+                }
+            }
+
+            async function deleteScript(name) {
+                if (!confirm(`Voulez-vous vraiment supprimer le script "${name}" ?`)) {
+                    return;
+                }
+
+                try {
+                    const response = await fetch(`/api/scripts/${encodeURIComponent(name)}`, {
+                        method: 'DELETE'
+                    });
+
+                    if (response.ok) {
+                        appendToConsole(`Script "${name}" supprimé avec succès`, 'text-success');
+                        if (currentScript === name) {
+                            editor.setValue('');
+                            currentScript = '';
+                            saveScriptBtn.disabled = true;
+                        }
+                        location.reload();
+                    } else {
+                        throw new Error('Erreur lors de la suppression');
+                    }
+                } catch (error) {
+                    console.error('Erreur:', error);
+                    appendToConsole('Erreur lors de la suppression: ' + error.message, 'text-danger');
+                }
+            }
+
+            function createNewScript() {
+                const name = document.getElementById('scriptName').value;
+                const description = document.getElementById('scriptDescription').value;
+
+                if (!name || !description) {
+                    alert('Veuillez remplir tous les champs');
+                    return;
+                }
+
+                // Ajouter l'extension .ps1 si nécessaire
+                const scriptName = name.endsWith('.ps1') ? name : name + '.ps1';
+
+                fetch('/api/scripts', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        name: scriptName,
+                        description: description,
+                        content: '# ' + description,
+                        isAdmin: true
+                    })
+                })
+                .then(response => {
+                    if (!response.ok) throw new Error('Erreur lors de la création du script');
+                    return response.json();
+                })
+                .then(() => {
+                    newScriptModal.hide();
+                    location.reload();
+                })
+                .catch(error => {
+                    console.error('Erreur:', error);
+                    alert('Erreur lors de la création du script: ' + error.message);
+                });
+            }
+
+            // Exécution de scripts
+            function executeScript(name) {
+                clearConsole();
+                appendToConsole(`Exécution du script "${name}"...`, 'text-info');
+                
+                if (socket) {
+                    socket.disconnect();
+                }
+
+                socket = io();
+                
+                socket.emit('execute-script', { 
+                    scriptName: name,
+                    content: editor.getValue()
+                });
+
+                socket.on('script-output', (data) => {
+                    if (typeof data === 'string') {
+                        appendToConsole(data);
+                    } else if (data && data.output) {
+                        appendToConsole(data.output);
+                    }
+                });
+
+                socket.on('script-error', (error) => {
+                    const errorMessage = typeof error === 'string' ? error : error.message || 'Erreur inconnue';
+                    appendToConsole(errorMessage, 'text-danger');
+                });
+
+                socket.on('execution-completed', () => {
+                    appendToConsole('Exécution terminée', 'text-success');
+                    stopBtn.disabled = true;
+                    executeBtn.disabled = false;
+                });
+
+                socket.on('interactive-auth-required', (data) => {
+                    appendToConsole('Authentification interactive requise', 'text-warning');
+                    document.getElementById('auth-message').textContent = data.message;
+                    authModal.show();
+                });
+
+                executeBtn.disabled = true;
+                stopBtn.disabled = false;
+            }
+
+            // Shell interactif
+            function executeShellCommand() {
+                const command = shellInput.value.trim();
+                if (!command) return;
+
+                appendToConsole('PS> ' + command, 'text-info');
+                shellInput.value = '';
+
+                if (socket) {
+                    socket.emit('shell-command', { command });
+                } else {
+                    socket = io();
+                    socket.emit('shell-command', { command });
+
+                    socket.on('shell-output', (data) => {
+                        if (typeof data === 'string') {
+                            appendToConsole(data);
+                        } else if (data && data.output) {
+                            appendToConsole(data.output);
+                        }
+                    });
+
+                    socket.on('shell-error', (error) => {
+                        const errorMessage = typeof error === 'string' ? error : error.message || 'Erreur inconnue';
+                        appendToConsole(errorMessage, 'text-danger');
+                    });
+                }
+            }
+
+            // Événements
+            editor.on('change', () => {
+                if (currentScript) {
+                    isEdited = true;
+                    saveScriptBtn.disabled = false;
+                }
+            });
+
+            executeBtn.addEventListener('click', () => executeScript(currentScript));
+            stopBtn.addEventListener('click', stopExecution);
+            clearBtn.addEventListener('click', () => editor.setValue(''));
+            clearConsoleBtn.addEventListener('click', clearConsole);
+            saveScriptBtn.addEventListener('click', saveScript);
+            newScriptBtn.addEventListener('click', () => {
+                document.getElementById('newScriptForm').reset();
+                newScriptModal.show();
+            });
+
+            shellInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    executeShellCommand();
+                }
+            });
+            shellExecuteBtn.addEventListener('click', executeShellCommand);
+
+            // Fonction pour arrêter l'exécution
+            function stopExecution() {
+                if (socket) {
+                    socket.emit('stop-execution');
+                    socket.disconnect();
+                }
+                stopBtn.disabled = true;
+                executeBtn.disabled = false;
+                appendToConsole('Exécution arrêtée', 'text-warning');
+            }
+
+            // Authentification interactive
+            function confirmInteractiveAuth() {
+                authModal.hide();
+                appendToConsole('Démarrage de l\'authentification interactive...', 'text-info');
+                
+                fetch(`/api/scripts/${currentScript}/execute-interactive`, {
+                    method: 'POST'
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        appendToConsole('Authentification réussie', 'text-success');
+                        executeScript(currentScript);
+                    } else {
+                        appendToConsole('Échec de l\'authentification: ' + data.error, 'text-danger');
+                    }
+                })
+                .catch(error => {
+                    console.error('Erreur:', error);
+                    appendToConsole('Erreur lors de l\'authentification: ' + error.message, 'text-danger');
+                });
+            }
+        });
+    </script>
+</body>
+</html> 

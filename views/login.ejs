@@ -1,0 +1,41 @@
+<%- contentFor('stylesheets') %>
+<!-- Custom styles for login page -->
+<style>
+.login-container {
+    min-height: 80vh;
+    display: flex;
+    align-items: center;
+}
+.login-card {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+</style>
+
+<%- contentFor('body') %>
+<div class="login-container">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-md-6">
+                <div class="card login-card">
+                    <div class="card-header bg-primary text-white">
+                        <h4 class="mb-0">Connexion</h4>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted mb-4">
+                            Connectez-vous avec votre compte Azure AD pour accéder à l'application.
+                        </p>
+                        <div class="text-center">
+                            <a href="<%= authUrl %>" class="btn btn-primary btn-lg">
+                                <i class="bi bi-microsoft me-2"></i>
+                                Se connecter avec Microsoft
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<%- contentFor('scripts') %>
+<!-- No additional scripts needed for login page --> 

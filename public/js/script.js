@@ -118,44 +118,55 @@ document.addEventListener('DOMContentLoaded', function() {
   
   // Fonction pour sauvegarder un script
   async function saveScript() {
-    const name = document.getElementById('scriptName').value.trim();
-    const content = editor.getValue();
+    const scriptName = document.getElementById('scriptName').value;
+    const scriptContent = editor.getValue();
+    const isAdminScript = document.getElementById('isAdminScript').checked;
+    const scriptCatalog = document.querySelector('input[name="scriptCatalog"]:checked').value;
     
-    if (!name) {
-      alert('Veuillez saisir un nom pour le script');
-      return;
+    if (!scriptName) {
+        alert('Veuillez entrer un nom de script');
+        return;
     }
     
-    // Nettoyer le nom du script : enlever .ps1 s'il existe et le rajouter proprement
-    const cleanName = name.replace(/\.ps1$/, '');
-    const fullName = `${cleanName}.ps1`;
+    // Nettoyer le nom du script (enlever .ps1 s'il est présent)
+    const cleanName = scriptName.endsWith('.ps1') ? scriptName.slice(0, -4) : scriptName;
     
     try {
-      // Utiliser PUT si le script existe déjà, sinon POST pour un nouveau script
-      const method = currentScript ? 'PUT' : 'POST';
-      const url = currentScript 
-        ? `/api/scripts/${encodeURIComponent(currentScript)}`
-        : '/api/scripts';
-      
-      const response = await fetch(url, {
-        method: method,
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ name: fullName, content })
-      });
-      
-      if (response.ok) {
-        appendToConsole(`Script "${fullName}" ${currentScript ? 'modifié' : 'créé'} avec succès`, 'success');
-        currentScript = fullName; // Mettre à jour le script courant
+        const method = currentScript ? 'PUT' : 'POST';
+        const url = currentScript ? `/api/scripts/${encodeURIComponent(cleanName)}` : '/api/scripts';
+        
+        const response = await fetch(url, {
+            method,
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                name: cleanName,
+                content: scriptContent,
+                isAdminScript,
+                scriptCatalog
+            })
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Erreur lors de la sauvegarde du script');
+        }
+        
+        const result = await response.json();
+        currentScript = cleanName;
+        
+        // Mettre à jour le message de succès avec le catalogue
+        alert(`Script ${currentScript ? 'mis à jour' : 'créé'} avec succès dans le catalogue ${result.catalog === 'admin' ? 'administrateur' : 'utilisateur'}`);
+        
+        // Recharger la liste des scripts
         loadScriptsList();
-      } else {
-        const error = await response.json();
-        throw new Error(error.error);
-      }
+        
+        // Fermer le modal
+        document.getElementById('newScriptModal').style.display = 'none';
     } catch (error) {
-      console.error('Erreur lors de la sauvegarde du script:', error);
-      appendToConsole('Erreur lors de la sauvegarde du script: ' + error.message, 'error');
+        console.error('Erreur:', error);
+        alert(error.message);
     }
   }
   
@@ -243,4 +254,31 @@ document.addEventListener('DOMContentLoaded', function() {
   
   // Charger la liste des scripts au démarrage
   loadScriptsList();
-}); 
+});
+
+function createNewScript() {
+    // Réinitialiser le formulaire
+    document.getElementById('scriptName').value = '';
+    editor.setValue('');
+    document.getElementById('isAdminScript').checked = false;
+    document.querySelector('input[name="scriptCatalog"][value="user"]').checked = true;
+    
+    // Réinitialiser le script courant
+    currentScript = null;
+    
+    // Afficher le modal
+    document.getElementById('newScriptModal').style.display = 'block';
+}
+
+// Fonction pour fermer le modal
+function closeNewScriptModal() {
+    document.getElementById('newScriptModal').style.display = 'none';
+}
+
+// Fermer le modal si on clique en dehors
+window.onclick = function(event) {
+    const modal = document.getElementById('newScriptModal');
+    if (event.target === modal) {
+        modal.style.display = 'none';
+    }
+} 

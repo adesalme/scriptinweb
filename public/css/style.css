@@ -1,7 +1,14 @@
 /* Styles généraux */
 body {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   background-color: #f8f9fa;
+}
+
+.footer {
+  margin-top: auto;
 }
 
 .card {
@@ -17,19 +24,20 @@ body {
 
 /* Éditeur de code */
 .CodeMirror {
-  height: 300px;
-  border-radius: 5px;
-  font-family: 'Consolas', monospace;
+  height: 400px;
+  border-radius: 4px;
+  font-family: 'Consolas', 'Monaco', monospace;
   font-size: 14px;
 }
 
 /* Liste des scripts */
 .script-item {
   transition: background-color 0.2s;
+  border-bottom: 1px solid #dee2e6;
 }
 
 .script-item:hover {
-  background-color: #f1f3f5;
+  background-color: #f8f9fa;
 }
 
 .script-item button {
@@ -41,30 +49,36 @@ body {
   opacity: 1;
 }
 
+.script-item:last-child {
+  border-bottom: none;
+}
+
 /* Console PowerShell */
 .ps-console {
   background-color: #012456;
-  color: #f0f0f0;
-  font-family: 'Consolas', monospace;
-  font-size: 14px;
-  padding: 12px;
-  border-radius: 5px;
-  height: 250px;
+  color: #EEEDF0;
+  font-family: Consolas, Monaco, 'Courier New', monospace;
+  padding: 10px;
+  height: 300px;
   overflow-y: auto;
   white-space: pre-wrap;
-  word-wrap: break-word;
 }
 
 .ps-console .error {
-  color: #ff6b6b;
+  color: #FF0000;
 }
 
 .ps-console .success {
-  color: #51cf66;
+  color: #00FF00;
+}
+
+.ps-console .warning {
+  color: #FFFF00;
 }
 
 .ps-console .command {
-  color: #ffef5d;
+  color: #FFFFFF;
+  font-weight: bold;
 }
 
 /* Scrollbar personnalisée pour la console */
@@ -106,4 +120,317 @@ body {
   .ps-console {
     height: 200px;
   }
+} 
+
+/* Styles pour les cartes */
+.card {
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  margin-bottom: 20px;
+}
+
+.card-header {
+  background-color: #f8f9fa;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.125);
+}
+
+/* Styles pour les boutons */
+.btn-group {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Styles pour les modals */
+.modal-content {
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+}
+
+/* Styles pour les badges */
+.badge {
+  font-weight: 500;
+  padding: 0.5em 0.75em;
+}
+
+/* Styles pour les alertes */
+.alert {
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+/* Styles pour les tableaux */
+.table-hover tbody tr:hover {
+  background-color: rgba(0, 0, 0, 0.02);
+}
+
+/* Styles pour les formulaires */
+.form-control:focus {
+  box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.15);
+}
+
+/* Styles pour les breadcrumbs */
+.breadcrumb {
+  background-color: transparent;
+  padding: 0.5rem 0;
+}
+
+/* Styles pour les dropdowns */
+.dropdown-menu {
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Styles pour les icônes */
+.bi {
+  margin-right: 0.25rem;
+}
+
+/* Styles pour les boutons d'action */
+.btn-sm {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+}
+
+/* Styles pour les liens */
+a {
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+/* Styles pour les titres */
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 600;
+}
+
+/* Styles pour les paragraphes */
+p {
+  line-height: 1.6;
+}
+
+/* Styles pour les listes */
+ul, ol {
+  padding-left: 1.5rem;
+}
+
+/* Styles pour les images */
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Styles pour les tableaux responsifs */
+.table-responsive {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Styles pour les formulaires */
+.form-group {
+  margin-bottom: 1rem;
+}
+
+/* Styles pour les labels */
+label {
+  font-weight: 500;
+}
+
+/* Styles pour les inputs */
+input, textarea, select {
+  border-radius: 4px;
+}
+
+/* Styles pour les boutons */
+button {
+  border-radius: 4px;
+}
+
+/* Styles pour les modals */
+.modal-header {
+  border-bottom: 1px solid #dee2e6;
+}
+
+.modal-footer {
+  border-top: 1px solid #dee2e6;
+}
+
+/* Styles pour les alertes */
+.alert-success {
+  background-color: #d4edda;
+  border-color: #c3e6cb;
+  color: #155724;
+}
+
+.alert-danger {
+  background-color: #f8d7da;
+  border-color: #f5c6cb;
+  color: #721c24;
+}
+
+.alert-warning {
+  background-color: #fff3cd;
+  border-color: #ffeeba;
+  color: #856404;
+}
+
+.alert-info {
+  background-color: #d1ecf1;
+  border-color: #bee5eb;
+  color: #0c5460;
+}
+
+/* Styles pour les badges */
+.badge-success {
+  background-color: #28a745;
+}
+
+.badge-danger {
+  background-color: #dc3545;
+}
+
+.badge-warning {
+  background-color: #ffc107;
+  color: #212529;
+}
+
+.badge-info {
+  background-color: #17a2b8;
+}
+
+/* Styles pour les boutons */
+.btn-success {
+  background-color: #28a745;
+  border-color: #28a745;
+}
+
+.btn-danger {
+  background-color: #dc3545;
+  border-color: #dc3545;
+}
+
+.btn-warning {
+  background-color: #ffc107;
+  border-color: #ffc107;
+  color: #212529;
+}
+
+.btn-info {
+  background-color: #17a2b8;
+  border-color: #17a2b8;
+}
+
+/* Styles pour les liens */
+a.text-success {
+  color: #28a745 !important;
+}
+
+a.text-danger {
+  color: #dc3545 !important;
+}
+
+a.text-warning {
+  color: #ffc107 !important;
+}
+
+a.text-info {
+  color: #17a2b8 !important;
+}
+
+/* Styles pour les tableaux */
+.table-success {
+  background-color: #d4edda;
+}
+
+.table-danger {
+  background-color: #f8d7da;
+}
+
+.table-warning {
+  background-color: #fff3cd;
+}
+
+.table-info {
+  background-color: #d1ecf1;
+}
+
+/* Styles pour les formulaires */
+.form-control.is-valid {
+  border-color: #28a745;
+}
+
+.form-control.is-invalid {
+  border-color: #dc3545;
+}
+
+/* Styles pour les modals */
+.modal-content {
+  border-radius: 0.3rem;
+}
+
+.modal-header {
+  border-top-left-radius: 0.3rem;
+  border-top-right-radius: 0.3rem;
+}
+
+.modal-footer {
+  border-bottom-left-radius: 0.3rem;
+  border-bottom-right-radius: 0.3rem;
+}
+
+/* Styles pour les alertes */
+.alert {
+  border-radius: 0.25rem;
+}
+
+/* Styles pour les badges */
+.badge {
+  border-radius: 0.25rem;
+}
+
+/* Styles pour les boutons */
+.btn {
+  border-radius: 0.25rem;
+}
+
+/* Styles pour les inputs */
+input, textarea, select {
+  border-radius: 0.25rem;
+}
+
+/* Styles pour les modals */
+.modal-content {
+  border-radius: 0.25rem;
+}
+
+.modal-header {
+  border-top-left-radius: 0.25rem;
+  border-top-right-radius: 0.25rem;
+}
+
+.modal-footer {
+  border-bottom-left-radius: 0.25rem;
+  border-bottom-right-radius: 0.25rem;
+}
+
+/* Styles pour les alertes */
+.alert {
+  border-radius: 0.25rem;
+}
+
+/* Styles pour les badges */
+.badge {
+  border-radius: 0.25rem;
+}
+
+/* Styles pour les boutons */
+.btn {
+  border-radius: 0.25rem;
+}
+
+/* Styles pour les inputs */
+input, textarea, select {
+  border-radius: 0.25rem;
+}
+
+#scriptsList {
+  max-height: 400px;
+  overflow-y: auto;
 } 

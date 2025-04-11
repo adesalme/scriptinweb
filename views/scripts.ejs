@@ -1,0 +1,34 @@
+<!-- Modal pour créer un nouveau script -->
+<div id="newScriptModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Créer un nouveau script</h2>
+            <span class="close">&times;</span>
+        </div>
+        <form id="createScriptForm">
+            <div class="form-group">
+                <label for="scriptName">Nom du script</label>
+                <input type="text" id="scriptName" name="scriptName" required>
+            </div>
+            <div class="form-group">
+                <label for="scriptContent">Contenu du script</label>
+                <textarea id="scriptContent" name="scriptContent" rows="10" required></textarea>
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" name="isAdmin" id="isAdmin">
+                    Script administratif
+                </label>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Créer</button>
+                <button type="button" class="btn btn-secondary" onclick="closeNewScriptModal()">Annuler</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Bouton pour ouvrir le modal -->
+<button id="newScriptBtn" class="btn btn-primary" onclick="openNewScriptModal()">
+    Nouveau script
+</button> 
