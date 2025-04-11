@@ -1,25 +1,8 @@
-# Script de connexion à Exchange Online avec token MSAL
+# Script simplifié pour Exchange Online
 try {
-    # Vérifier si le module est disponible
-    if (-not (Get-Module -ListAvailable -Name ExchangeOnlineManagement)) {
-        Write-Output "Mode démonstration: Simulation de l'installation du module ExchangeOnlineManagement"
-        # En mode démonstration, on continue sans le module
-    } else {
-        # Importer le module
-        Import-Module ExchangeOnlineManagement -ErrorAction Stop
-        Write-Output "Module ExchangeOnlineManagement chargé avec succès."
-    }
-    
-    # Afficher des informations de diagnostic
-    Write-Output "PowerShell Version: $($PSVersionTable.PSVersion)"
-    Write-Output "OS: $($PSVersionTable.OS)"
-    
-    # Vérifier si nous sommes en mode démonstration (token commençant par 'demo-')
-    if ($token -like 'demo-*') {
+    # Vérifier si nous sommes en mode démonstration
+    if ($env:AZURE_ACCESS_TOKEN -like 'demo-*') {
         Write-Output "Mode démonstration: Simulation de la connexion à Exchange Online"
-        Write-Output "Token utilisé: $token"
-        Write-Output "AppId: $env:AZURE_CLIENT_ID"
-        Write-Output "Organization: $env:AZURE_TENANT_ID"
         
         # Simuler des résultats
         Write-Output "`nRécupération des boîtes aux lettres (simulation)..."
@@ -31,21 +14,16 @@ try {
         $demoMailboxes | Format-Table -Property DisplayName, PrimarySmtpAddress, UserPrincipalName
     } else {
         # Se connecter à Exchange Online avec le token
-        Write-Output "Tentative de connexion à Exchange Online avec le token MSAL..."
-        Connect-ExchangeOnline -AccessToken $token -AppId $env:AZURE_CLIENT_ID -Organization $env:AZURE_TENANT_ID
-        
-        Write-Output "Connexion réussie à Exchange Online."
+        Write-Output "Connexion à Exchange Online..."
+        Connect-ExchangeOnline -AccessToken $env:AZURE_ACCESS_TOKEN -AppId $env:AZURE_CLIENT_ID -Organization $env:AZURE_TENANT_ID
         
         # Exemple de commande Exchange Online
         Write-Output "`nRécupération des boîtes aux lettres..."
         Get-Mailbox -ResultSize 10 | Format-Table DisplayName, PrimarySmtpAddress, UserPrincipalName
+        
+        # Déconnexion propre
+        Disconnect-ExchangeOnline -Confirm:$false
     }
-    
 } catch {
-    Write-Error "Erreur lors de l'exécution du script: $_"
-} finally {
-    # Déconnexion propre (uniquement si nous ne sommes pas en mode démonstration)
-    if ($token -notlike 'demo-*' -and $null -ne (Get-PSSession | Where-Object {$_.ConfigurationName -eq "Microsoft.Exchange" -and $_.State -eq "Opened"})) {
-        Disconnect-ExchangeOnline -Confirm:$false -ErrorAction SilentlyContinue
-    }
+    Write-Error "Erreur: $_"
 } 

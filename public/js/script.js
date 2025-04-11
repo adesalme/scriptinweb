@@ -1,6 +1,10 @@
 document.addEventListener('DOMContentLoaded', function() {
   // Initialisation de Socket.IO
-  const socket = io();
+  const socket = io({
+    reconnection: true,
+    reconnectionDelay: 1000,
+    reconnectionAttempts: 3
+  });
   
   // Variables globales
   let currentScript = '';
@@ -14,13 +18,7 @@ document.addEventListener('DOMContentLoaded', function() {
     autoCloseBrackets: true,
     matchBrackets: true,
     indentUnit: 4,
-    tabSize: 4,
-    indentWithTabs: true,
-    extraKeys: {
-      'Tab': function(cm) {
-        cm.replaceSelection('    ');
-      }
-    }
+    tabSize: 4
   });
   
   // Référence à la console PowerShell
@@ -28,10 +26,12 @@ document.addEventListener('DOMContentLoaded', function() {
   
   // Fonction pour ajouter du texte à la console
   function appendToConsole(text, className = '') {
+    if (!text || text.trim() === '') return;
+    
     const element = document.createElement('div');
     element.textContent = text;
     if (className) {
-      element.classList.add(className);
+        element.classList.add(className);
     }
     psConsole.appendChild(element);
     psConsole.scrollTop = psConsole.scrollHeight;
@@ -213,29 +213,32 @@ document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('clearConsole').addEventListener('click', clearConsole);
   
   // Écouter les événements Socket.IO
+  socket.on('connect', () => {
+    appendToConsole('Connecté au serveur', 'success');
+  });
+  
+  socket.on('disconnect', () => {
+    appendToConsole('Déconnecté du serveur', 'warning');
+  });
+  
   socket.on('script-output', function(data) {
-    appendToConsole(data);
+    // Si data est une chaîne, l'afficher directement
+    if (typeof data === 'string') {
+        appendToConsole(data);
+    }
+    // Si data est un objet avec une propriété output, afficher output
+    else if (data && data.output) {
+        appendToConsole(data.output);
+    }
   });
   
   socket.on('script-error', function(error) {
-    appendToConsole(error, 'error');
+    const errorMessage = typeof error === 'string' ? error : error.message || 'Erreur inconnue';
+    appendToConsole(errorMessage, 'error');
   });
   
   socket.on('execution-completed', function() {
     appendToConsole('Exécution terminée', 'success');
-  });
-
-  // Gestion des commandes shell
-  socket.on('command-output', function(output) {
-    appendToConsole(output);
-  });
-
-  socket.on('command-error', function(error) {
-    appendToConsole(error, 'error');
-  });
-
-  socket.on('command-complete', function() {
-    appendToConsole('PS> ', 'prompt');
   });
   
   // Charger la liste des scripts au démarrage

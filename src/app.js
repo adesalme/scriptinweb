@@ -305,6 +305,55 @@ app.delete('/api/scripts/:name', (req, res) => {
     res.json({ message: 'Script deleted successfully' });
 });
 
+app.post('/api/scripts/:scriptName/execute', async (req, res) => {
+    if (!req.session.user) {
+        return res.status(401).json({ error: 'Non authentifié' });
+    }
+
+    const scriptName = req.params.scriptName;
+    console.log(`Tentative d'exécution du script: ${scriptName}`);
+
+    try {
+        // Vérifier si PowerShell est disponible
+        if (!isWindows && !isPwshAvailable) {
+            console.error('PowerShell n\'est pas disponible');
+            return res.status(500).json({ error: 'PowerShell n\'est pas disponible' });
+        }
+
+        // Construire le chemin du script
+        const scriptPath = path.join(scriptsDir, scriptName.endsWith('.ps1') ? scriptName : `${scriptName}.ps1`);
+        console.log(`Chemin du script: ${scriptPath}`);
+
+        // Vérifier si le script existe
+        if (!fs.existsSync(scriptPath)) {
+            console.error(`Script non trouvé: ${scriptPath}`);
+            return res.status(404).json({ error: 'Script non trouvé' });
+        }
+
+        // Lire le contenu du script
+        const scriptContent = fs.readFileSync(scriptPath, 'utf8');
+        console.log('Contenu du script lu avec succès');
+
+        // Récupérer le token d'accès de la session
+        const accessToken = req.session.accessToken;
+        console.log('Token d\'accès récupéré de la session');
+
+        // Exécuter le script avec le token
+        console.log('Démarrage de l\'exécution du script avec le token');
+        const result = await authService.executePowerShellWithToken(scriptContent, 'azure', accessToken);
+        console.log('Script exécuté avec succès');
+
+        res.json({ output: result });
+    } catch (error) {
+        console.error('Erreur lors de l\'exécution du script:', error);
+        res.status(500).json({ 
+            error: 'Erreur lors de l\'exécution du script',
+            details: error.message,
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        });
+    }
+});
+
 // Route pour la page shell
 app.get('/shell', ensureAuthenticated, (req, res) => {
     res.render('shell', {
@@ -322,77 +371,48 @@ io.on('connection', (socket) => {
         const session = socket.request.session;
         
         if (!session || !session.user) {
-            socket.emit('execution-error', { message: 'Non authentifié' });
+            socket.emit('script-error', 'Non authentifié');
             return;
         }
         
         // Vérifier si PowerShell est disponible
         if (!isWindows && !isPwshAvailable) {
-            socket.emit('execution-error', { 
-                message: 'PowerShell Core (pwsh) n\'est pas installé ou n\'est pas disponible dans le PATH. Veuillez l\'installer pour exécuter des scripts PowerShell sur Linux.' 
-            });
+            socket.emit('script-error', 'PowerShell Core (pwsh) n\'est pas installé ou n\'est pas disponible dans le PATH.');
             return;
         }
         
         try {
-            const scriptPath = path.join(scriptsDir, `${scriptName}.ps1`);
+            const cleanName = scriptName.endsWith('.ps1') ? scriptName : `${scriptName}.ps1`;
+            const scriptPath = path.join(scriptsDir, cleanName);
             
             if (!fs.existsSync(scriptPath)) {
-                socket.emit('execution-error', { message: 'Script not found' });
+                socket.emit('script-error', 'Script non trouvé');
                 return;
             }
             
             const scriptContent = fs.readFileSync(scriptPath, 'utf8');
             
-            // Ajouter les commandes d'installation des modules si nécessaires
-            const setupScript = `
-                # Configuration du repository PSGallery
-                if ((Get-PSRepository -Name "PSGallery").InstallationPolicy -ne "Trusted") {
-                    Write-Output "Configuration du repository PSGallery..."
-                    Set-PSRepository -Name "PSGallery" -InstallationPolicy Trusted
-                }
-
-                # Installation du module Az.Accounts si nécessaire
-                if (-not (Get-Module -ListAvailable -Name Az.Accounts)) {
-                    Write-Output "Installation du module Az.Accounts..."
-                    Install-Module -Name Az.Accounts -Repository PSGallery -Force -AllowClobber -Scope CurrentUser
-                }
-
-                # Installation du module Microsoft.Graph si nécessaire
-                if (-not (Get-Module -ListAvailable -Name Microsoft.Graph)) {
-                    Write-Output "Installation du module Microsoft.Graph..."
-                    Install-Module -Name Microsoft.Graph -Repository PSGallery -Force -AllowClobber -Scope CurrentUser
-                }
-
-                # Installation du module AzureAD si nécessaire
-                if (-not (Get-Module -ListAvailable -Name AzureAD)) {
-                    Write-Output "Installation du module AzureAD..."
-                    Install-Module -Name AzureAD -Repository PSGallery -Force -AllowClobber -Scope CurrentUser
-                }
-
-                # Installation du module ExchangeOnlineManagement si nécessaire
-                if (-not (Get-Module -ListAvailable -Name ExchangeOnlineManagement)) {
-                    Write-Output "Installation du module ExchangeOnlineManagement..."
-                    Install-Module -Name ExchangeOnlineManagement -Repository PSGallery -Force -AllowClobber -Scope CurrentUser
-                }
-
-                # Import des modules nécessaires
-                Write-Output "Import des modules..."
-                Import-Module AzureAD
-                Import-Module Microsoft.Graph
-                Import-Module ExchangeOnlineManagement
-            `;
+            // Vérifier si le script nécessite une authentification
+            const requiresAuth = authService.scriptRequiresAuth(scriptContent, service);
             
-            // Utiliser le token de l'utilisateur pour l'exécution
+            // Utiliser le token de l'utilisateur pour l'exécution uniquement si nécessaire
             const result = await authService.executePowerShellWithToken(
-                setupScript + "\n" + scriptContent,
+                scriptContent,
                 service,
-                session.accessToken
+                requiresAuth ? session.accessToken : null
             );
             
-            // Émettre les résultats progressivement
-            socket.emit('script-output', { output: result });
-            socket.emit('execution-completed', { result: 'Script executed successfully' });
+            // Émettre le résultat ligne par ligne
+            if (result) {
+                const lines = result.split('\n');
+                for (const line of lines) {
+                    if (line.trim()) {
+                        socket.emit('script-output', line);
+                    }
+                }
+            }
+            
+            socket.emit('execution-completed');
         } catch (error) {
             console.error('Erreur lors de l\'exécution du script:', error);
             socket.emit('script-error', error.message);
@@ -413,7 +433,7 @@ io.on('connection', (socket) => {
             });
             
             // Handle process completion
-            ps.on('close', (code) => {
+            pwsh.on('close', (code) => {
                 if (code !== 0) {
                     socket.emit('command-output', {
                         type: 'error',
@@ -439,14 +459,13 @@ async function startServer() {
     // Vérifier la disponibilité de PowerShell Core au démarrage
     isPwshAvailable = await checkPwshAvailability();
     
-    // Définir le port en fonction de la présence des certificats SSL et de l'environnement
+    // Définir le port et l'hôte
     const PORT = process.env.PORT || (sslEnabled ? 8443 : 8080);
-    const HOST = '0.0.0.0'; // Écouter sur toutes les interfaces
-    const protocol = sslEnabled ? 'https' : 'http';
+    const HOST = process.env.HOST || '0.0.0.0';
 
-    server.listen(sslEnabled ? httpsPort : port, host, () => {
+    server.listen(PORT, HOST, () => {
         console.log(`Serveur démarré en mode ${sslEnabled ? 'HTTPS' : 'HTTP'}`);
-        console.log(`URL: ${sslEnabled ? 'https' : 'http'}://${host}:${sslEnabled ? httpsPort : port}`);
+        console.log(`URL: ${sslEnabled ? 'https' : 'http'}://${HOST}:${PORT}`);
         console.log(`Mode démonstration: ${process.env.DEMO_MODE === 'true' ? 'activé' : 'désactivé'}`);
         console.log(`PowerShell Core: ${isPwshAvailable ? 'disponible' : 'non disponible'}`);
     });
