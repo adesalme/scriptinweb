@@ -26,7 +26,10 @@ const authScopes = {
         'profile',
         'email',
         'User.Read',
-        'offline_access'
+        'offline_access',
+        'https://management.azure.com/user_impersonation',
+        'https://management.azure.com/.default',
+        'https://graph.microsoft.com/.default'
     ]
 };
 

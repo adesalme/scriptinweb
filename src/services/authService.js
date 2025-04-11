@@ -4,7 +4,7 @@ const { PowerShell } = require('node-powershell');
 const { exec } = require('child_process');
 const util = require('util');
 const execAsync = util.promisify(exec);
-const { msalConfig, authScopes } = require('../config/auth');
+const { msalConfig, authScopes, endpoints } = require('../config/auth');
 
 class AuthService {
     constructor() {
@@ -79,13 +79,18 @@ class AuthService {
             console.log('Traitement du callback avec le code reçu');
             const tokenRequest = {
                 code: code,
-                scopes: authScopes.userScopes,
+                scopes: ['https://management.azure.com/.default'],
                 redirectUri: this.config.auth.redirectUri,
             };
             console.log('Demande de token avec les paramètres:', tokenRequest);
             const response = await this.msalClient.acquireTokenByCode(tokenRequest);
             console.log('Token acquis avec succès');
-            return response;
+            
+            return {
+                ...response,
+                accessToken: response.accessToken,
+                expiresOn: response.expiresOn
+            };
         } catch (error) {
             console.error('Erreur lors de l\'acquisition du token:', error);
             throw error;

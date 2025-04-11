@@ -214,22 +214,28 @@ document.addEventListener('DOMContentLoaded', function() {
   
   // Écouter les événements Socket.IO
   socket.on('script-output', function(data) {
-    if (data.output) {
-      appendToConsole(data.output);
-    }
+    appendToConsole(data);
   });
   
-  socket.on('execution-error', function(data) {
-    if (data.message) {
-      appendToConsole('Erreur: ' + data.message, 'error');
-    }
-    if (data.stack) {
-      appendToConsole('Stack trace: ' + data.stack, 'error');
-    }
+  socket.on('script-error', function(error) {
+    appendToConsole(error, 'error');
   });
   
-  socket.on('execution-completed', function(data) {
+  socket.on('execution-completed', function() {
     appendToConsole('Exécution terminée', 'success');
+  });
+
+  // Gestion des commandes shell
+  socket.on('command-output', function(output) {
+    appendToConsole(output);
+  });
+
+  socket.on('command-error', function(error) {
+    appendToConsole(error, 'error');
+  });
+
+  socket.on('command-complete', function() {
+    appendToConsole('PS> ', 'prompt');
   });
   
   // Charger la liste des scripts au démarrage
